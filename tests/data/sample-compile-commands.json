@@ -1,0 +1,20 @@
+[
+  {
+    "directory": "F:/proj/build/ninja-x64",
+    "command": "cl.exe /nologo /TP -c F:/proj/libs/BW_Core/src/BW/Core/logger.cpp /FoLibs\\BW_Core\\CMakeFiles\\BW_Core.dir\\src\\BW\\Core\\logger.cpp.obj",
+    "file": "F:/proj/libs/BW_Core/src/BW/Core/logger.cpp",
+    "output": "libs/BW_Core/CMakeFiles/BW_Core.dir/src/BW/Core/logger.cpp.obj"
+  },
+  {
+    "directory": "F:/proj/build/ninja-x64",
+    "command": "cl.exe /nologo /TP -c F:/proj/libs/BW_Core/src/BW/Core/path_utils.cpp",
+    "file": "F:/proj/libs/BW_Core/src/BW/Core/path_utils.cpp",
+    "output": "libs/BW_Core/CMakeFiles/BW_Core.dir/src/BW/Core/path_utils.cpp.obj"
+  },
+  {
+    "directory": "F:/proj/build/ninja-x64",
+    "command": "cl.exe /nologo /TP -c F:/proj/libs/BW_Build/src/BW/Build/time_trace.cpp",
+    "file": "F:/proj/libs/BW_Build/src/BW/Build/time_trace.cpp",
+    "output": "libs/BW_Build/CMakeFiles/BW_Build.dir/src/BW/Build/time_trace.cpp.obj"
+  }
+]

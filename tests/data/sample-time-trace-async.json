@@ -1,0 +1,22 @@
+{
+  "traceEvents": [
+    { "pid": 1, "tid": 7, "ts": 100, "cat": "Source", "ph": "b", "id": 0, "name": "Source", "args": { "detail": "F:/proj/libs/BW_Build/include/BW/Build/heavy.h" } },
+    { "pid": 1, "tid": 7, "ts": 200, "cat": "Source", "ph": "b", "id": 0, "name": "Source", "args": { "detail": "F:\\proj\\libs\\BW_Build\\include\\BW\\Build\\inner.h" } },
+    { "pid": 1, "tid": 7, "ts": 1700, "cat": "Source", "ph": "e", "id": 0, "name": "Source" },
+    { "pid": 1, "tid": 7, "ts": 1800, "cat": "Source", "ph": "b", "id": 0, "name": "Source", "args": { "detail": "C:/Qt/6.6.2/msvc2019_64/include/QtCore/qstring.h" } },
+    { "pid": 1, "tid": 7, "ts": 3000, "cat": "Source", "ph": "e", "id": 0, "name": "Source" },
+    { "pid": 1, "tid": 7, "ts": 4100, "cat": "Source", "ph": "e", "id": 0, "name": "Source" },
+    { "pid": 1, "tid": 7, "ts": 4300, "cat": "Source", "ph": "b", "id": 0, "name": "Source", "args": { "detail": "C:\\Qt\\6.6.2\\msvc2019_64\\include\\QtCore\\qstring.h" } },
+    { "pid": 1, "tid": 7, "ts": 4350, "cat": "Source", "ph": "e", "id": 0, "name": "Source" },
+    { "pid": 1, "tid": 7, "ph": "X", "ts": 7300, "dur": 400, "name": "InstantiateFunction", "args": { "detail": "std::vector<BW::Build::SourceCost>::push_back" } },
+    { "pid": 1, "tid": 7, "ph": "X", "ts": 7800, "dur": 900, "name": "InstantiateClass", "args": { "detail": "std::unordered_map<std::string, BW::Build::SourceCost>" } },
+    { "pid": 1, "tid": 7, "ph": "X", "ts": 0, "dur": 9000, "name": "Frontend" },
+    { "pid": 1, "tid": 7, "ph": "X", "ts": 9000, "dur": 5000, "name": "Backend" },
+    { "pid": 1, "tid": 7, "ph": "X", "ts": 0, "dur": 14000, "name": "ExecuteCompiler" },
+    { "pid": 1, "tid": 8, "ph": "X", "ts": 0, "dur": 9000, "name": "Total Frontend", "args": { "count": 1, "avg ms": 9 } },
+    { "pid": 1, "tid": 9, "ph": "X", "ts": 0, "dur": 5000, "name": "Total Backend", "args": { "count": 1, "avg ms": 5 } },
+    { "cat": "", "pid": 1, "tid": 7, "ts": 0, "ph": "M", "name": "process_name", "args": { "name": "clang-cl.exe" } },
+    { "cat": "", "pid": 1, "tid": 7, "ts": 0, "ph": "M", "name": "process_labels", "args": { "name": "\"F:/proj/libs/BW_Build/src/BW/Build/time_trace.cpp\"" } }
+  ],
+  "beginningOfTime": 1737000000000000
+}

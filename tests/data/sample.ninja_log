@@ -1,0 +1,12 @@
+# ninja log v5
+0	142	1737000000000000000	libs/BW_Core/CMakeFiles/BW_Core.dir/src/BW/Core/logger.cpp.obj	9a3f1c22b7de4401
+3	301	1737000000000000000	libs/BW_Core/CMakeFiles/BW_Core.dir/src/BW/Core/path_utils.cpp.obj	18c4d9e07a2b5502
+5	884	1737000000000000000	libs/BW_Build/CMakeFiles/BW_Build.dir/src/BW/Build/ninja_log.cpp.obj	5d2e88a1cc934603
+7	2410	1737000000000000000	libs/BW_Build/CMakeFiles/BW_Build.dir/src/BW/Build/time_trace.cpp.obj	77bb01fe3d1a4704
+9	3980	1737000000000000000	apps/BuildWeather/CMakeFiles/BuildWeather.dir/src/treemap_item.cpp.obj	c10a5b6644ef4805
+310	4102	1737000000000000000	libs/BW_Treemap/CMakeFiles/BW_Treemap.dir/src/BW/Treemap/squarify.cpp.obj	2ef7439a51bc4906
+4110	4395	1737000000000000000	lib/BW_Core.lib	30fa9c7b2d5e4b08
+890	4640	1737000000000000000	libs/BW_Build/CMakeFiles/BW_Build.dir/src/BW/Build/build_snapshot.cpp.obj	b4c0d21e8f7a4a07
+4650	5210	1737000000000000000	bin/BuildWeather.exe	e91d6a340cb84c09
+0	2455	1737000000900000000	libs/BW_Build/CMakeFiles/BW_Build.dir/src/BW/Build/time_trace.cpp.obj	77bb01fe3d1a4704
+2460	3020	1737000000900000000	bin/BuildWeather.exe	e91d6a340cb84c09
