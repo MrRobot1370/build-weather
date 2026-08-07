@@ -13,6 +13,10 @@ Item {
     signal exportRequested(string kind)
     signal tracesFolderRequested()
 
+    /// Which table is showing. Held here rather than inside the Segmented,
+    /// because that control is a controlled component and does not keep state.
+    property int table: 0
+
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: Style.space3
@@ -24,9 +28,9 @@ Item {
             spacing: Style.space2
 
             Segmented {
-                id: which
                 model: ["Slow steps", "Headers", "Templates", "Units"]
-                currentIndex: 0
+                currentIndex: page.table
+                onActivated: function(index) { page.table = index }
             }
 
             Item { Layout.fillWidth: true }
@@ -84,8 +88,7 @@ Item {
                 text: "Export CSV"
                 enabled: AppContext.build.hasData
                 onClicked: page.exportRequested(
-                    ["targets", "headers", "templates", "headers"][
-                        which.currentIndex])
+                    ["targets", "headers", "templates", "headers"][page.table])
             }
         }
 
@@ -154,7 +157,7 @@ Item {
         StackLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            currentIndex: which.currentIndex
+            currentIndex: page.table
 
             // 0: slowest build steps, straight from .ninja_log
             DataTable {
@@ -258,7 +261,7 @@ Item {
         // ---- empty state for the trace-only tables ---------------------------
         TextBW {
             Layout.fillWidth: true
-            visible: which.currentIndex > 0 && !AppContext.traces.hasData
+            visible: page.table > 0 && !AppContext.traces.hasData
                      && !AppContext.traces.loading
             text: AppContext.traces.status
             variant: TextBW.Faint

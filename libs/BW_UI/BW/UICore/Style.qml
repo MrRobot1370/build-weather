@@ -31,9 +31,10 @@ QtObject {
     readonly property color bgRail:     dark ? "#0D1016" : "#E9EDF4"   // tab rail, status bar
     readonly property color bgPanel:    dark ? "#0F131A" : "#FAFBFD"   // side panels
     readonly property color bgWell:     dark ? "#0B0E13" : "#E8ECF3"   // input wells, readouts
-    readonly property color bgMap:      dark ? "#06080B" : "#20242C"   // the map backdrop,
-                                                                       // dark in both themes so
-                                                                       // the ramp reads the same
+    // The map backdrop follows the theme like everything else. An earlier
+    // version kept it dark in light mode so one ramp could serve both; that
+    // just looked like the map had failed to notice the theme change.
+    readonly property color bgMap:     dark ? "#06080B" : "#E7E9ED"
 
     readonly property color border:       dark ? "#222933" : "#D3DAE5"
     readonly property color borderSubtle: dark ? "#1A2028" : "#E1E6EE"
@@ -68,15 +69,26 @@ QtObject {
     readonly property color better: success
 
     // ---- Heat ramp -----------------------------------------------------
-    // Single-hue dark-to-hot, near-monotonic in perceived lightness. Not a
+    // Single hue family, near-monotonic in perceived lightness. Not a
     // rainbow: rank has to be readable from brightness alone, including in
-    // a greyscale screenshot. Mirrored exactly in colour_ramp.h, which is
-    // what the scene graph actually samples; these stops exist so QML
-    // legends and swatches cannot drift from it.
-    readonly property var heatStops: [
+    // a greyscale screenshot.
+    //
+    // Two ramps, because there are two backgrounds. Dark theme: cold is
+    // near-black, hot is pale, so expensive files glow. Light theme runs the
+    // other way, pale for cheap and deep red for expensive, because on a
+    // light page a pale "hot" colour would be the least visible thing on
+    // screen. In both cases expensive is the value furthest from the
+    // background. Mirrored exactly in colour_ramp.h, which is what the scene
+    // graph samples; these exist so legends cannot drift from the map.
+    readonly property var heatStopsDark: [
         "#10141C", "#241A2E", "#46203C", "#6E2436", "#9B3527",
         "#C55416", "#E27B0A", "#F3A81E", "#FBD35C", "#FDF3B8"
     ]
+    readonly property var heatStopsLight: [
+        "#FDF9E8", "#F9E7B4", "#F4CD7B", "#EFAB4D", "#E6852E",
+        "#D3621F", "#B44119", "#8F2D19", "#6B1E18", "#4A1311"
+    ]
+    readonly property var heatStops: dark ? heatStopsDark : heatStopsLight
 
     // The stops are already spaced so a plain component-wise blend between
     // neighbours stays smooth; colour_ramp.h does exactly the same blend.

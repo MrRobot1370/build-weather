@@ -95,14 +95,39 @@ Rectangle {
             color: Style.textSecondary
         }
 
+        // Playback rate. 64x exists because a four minute build at 16x is
+        // still sixteen seconds of watching, and the speed only has any
+        // visible effect while playing, which the tooltip says out loud
+        // because it is not obvious from the control.
         Segmented {
-            model: ["1x", "4x", "16x"]
-            currentIndex: AppContext.replaySpeed >= 16 ? 2
-                          : (AppContext.replaySpeed >= 4 ? 1 : 0)
+            id: speed
+            readonly property var factors: [1, 4, 16, 64]
+            model: ["1x", "4x", "16x", "64x"]
+            currentIndex: {
+                var best = 0
+                for (var i = 0; i < factors.length; ++i)
+                    if (AppContext.replaySpeed >= factors[i]) best = i
+                return best
+            }
             enabled: root.usable
             onActivated: function(index) {
-                AppContext.replaySpeed = [1, 4, 16][index]
+                AppContext.replaySpeed = factors[index]
+                // Changing the rate mid-thought almost always means "and go",
+                // and doing nothing here is what makes the control feel dead.
+                if (!AppContext.replayPlaying)
+                    AppContext.replayPlay()
             }
+            ToolTipBW {
+                visible: speedHover.hovered
+                text: "Playback rate. Takes effect while playing: "
+                      + AppContext.formatDuration(AppContext.replayDurationMs)
+                      + " of build replays in about "
+                      + AppContext.formatDuration(
+                            AppContext.replayDurationMs
+                            / speed.factors[speed.currentIndex])
+                      + " at this rate."
+            }
+            HoverHandler { id: speedHover }
         }
 
         ButtonBW {

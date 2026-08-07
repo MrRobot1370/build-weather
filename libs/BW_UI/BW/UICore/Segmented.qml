@@ -4,6 +4,13 @@ import BW.UICore
 
 // Compact segmented control. Used wherever a two or three way mode switch
 // would otherwise be a combo box the user has to open to read.
+//
+// A *controlled* component on purpose: tapping only emits activated(), it
+// never writes its own currentIndex. Writing it would overwrite whatever
+// binding the consumer put there, so the control would show the tapped value
+// even if the consumer rejected it, and would stop tracking the underlying
+// state from then on. Consumers bind currentIndex to the real state and
+// change that state in onActivated.
 Rectangle {
     id: root
 
@@ -57,10 +64,7 @@ Rectangle {
 
                 HoverHandler { id: hover }
                 TapHandler {
-                    onTapped: {
-                        root.currentIndex = index
-                        root.activated(index)
-                    }
+                    onTapped: root.activated(index)
                 }
             }
         }

@@ -531,7 +531,7 @@ void AppContext::setReplayTimeMs(qint64 timeMs)
 
 void AppContext::setReplaySpeed(qreal speed)
 {
-    const qreal clamped = std::clamp<qreal>(speed, 0.25, 32.0);
+    const qreal clamped = std::clamp<qreal>(speed, 0.25, 64.0);
     if (qFuzzyCompare(clamped, m_replaySpeed)) {
         return;
     }
