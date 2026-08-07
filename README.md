@@ -15,6 +15,15 @@ tree rather than a scrolling wall of text.
   worst regression first.
 - **Replay** — scrub a build's timeline and watch it happen again.
 
+## Documentation
+
+`docs/USER_GUIDE.md` is the user guide, with annotated screenshots of each
+view. `docs/USER_GUIDE.pdf` is the printable form, regenerated with:
+
+```bash
+python tools/build-docs.py
+```
+
 ## Requirements
 
 - Windows, Visual Studio 2022 (MSVC or the bundled clang-cl)
@@ -54,6 +63,7 @@ Or start it with no arguments and use **Open build dir**. Options:
 | `<build-dir>` | Build directory to open on start; must contain `.ninja_log` |
 | `--source <dir>` | Source root, when it cannot be inferred |
 | `--traces <dir>` | Directory to scan for `-ftime-trace` documents |
+| `--baseline <file>` | Baseline `.ninja_log` to compare the loaded build against |
 
 **Live builds need a developer environment.** `cl.exe` finds neither the CRT
 headers nor the import libraries unless `INCLUDE` and `LIB` are set, and a GUI

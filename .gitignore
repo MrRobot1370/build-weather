@@ -13,3 +13,7 @@
 *.user
 CMakeUserPresets.json
 compile_commands.json
+
+# Intermediate HTML from tools/build-docs.py; the .md and .pdf are tracked.
+docs/_user_guide.html
+docs/_captures/
