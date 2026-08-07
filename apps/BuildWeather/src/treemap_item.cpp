@@ -9,6 +9,7 @@
 #include <QSGGeometryNode>
 #include <QSGSimpleTextureNode>
 #include <QSGVertexColorMaterial>
+#include <QWheelEvent>
 
 #include <algorithm>
 #include <cmath>
@@ -98,6 +99,13 @@ void appendDoubleOutline(
 
 constexpr int kOutlineVertices = 8;
 constexpr int kDoubleOutlineVertices = 2 * kOutlineVertices;
+
+/// Cells scrolled off the view still exist in the layout; there is no point
+/// pushing their vertices at the GPU. At zoom 64 this is most of them.
+auto onScreen(const Treemap::Rect &r, double w, double h) -> bool
+{
+    return r.x < w && r.y < h && r.x + r.w > 0.0 && r.y + r.h > 0.0;
+}
 
 auto mix(const QColor &a, const QColor &b, double t) -> QColor
 {
@@ -201,6 +209,113 @@ void TreemapItem::setShowLabels(bool show)
     m_labelsDirty = true;
     Q_EMIT showLabelsChanged();
     update();
+}
+
+void TreemapItem::setDarkTheme(bool dark)
+{
+    if (m_darkTheme == dark) {
+        return;
+    }
+    m_darkTheme = dark;
+    m_labelsDirty = true;
+    Q_EMIT darkThemeChanged();
+    update();
+}
+
+void TreemapItem::clampPan()
+{
+    // Content is zoom times the view, so the pan can run from 0 to the
+    // overhang. At zoom 1 there is no overhang and the pan is pinned to 0.
+    const qreal maxX = std::max(0.0, width() * (m_zoom - 1.0));
+    const qreal maxY = std::max(0.0, height() * (m_zoom - 1.0));
+    m_panX = std::clamp(m_panX, 0.0, maxX);
+    m_panY = std::clamp(m_panY, 0.0, maxY);
+}
+
+void TreemapItem::setZoom(qreal zoom)
+{
+    const qreal clamped = std::clamp(zoom, kMinZoom, kMaxZoom);
+    if (qFuzzyCompare(clamped, m_zoom)) {
+        return;
+    }
+    m_zoom = clamped;
+    clampPan();
+    m_layoutDirty = true;
+    m_labelsDirty = true;
+    clearHover();
+    Q_EMIT viewChanged();
+    update();
+}
+
+void TreemapItem::setPanX(qreal pan)
+{
+    const qreal before = m_panX;
+    m_panX = pan;
+    clampPan();
+    if (qFuzzyCompare(before, m_panX)) {
+        return;
+    }
+    m_layoutDirty = true;
+    m_labelsDirty = true;
+    Q_EMIT viewChanged();
+    update();
+}
+
+void TreemapItem::setPanY(qreal pan)
+{
+    const qreal before = m_panY;
+    m_panY = pan;
+    clampPan();
+    if (qFuzzyCompare(before, m_panY)) {
+        return;
+    }
+    m_layoutDirty = true;
+    m_labelsDirty = true;
+    Q_EMIT viewChanged();
+    update();
+}
+
+void TreemapItem::fitToView()
+{
+    if (qFuzzyCompare(m_zoom, kMinZoom) && qFuzzyIsNull(m_panX)
+        && qFuzzyIsNull(m_panY)) {
+        return;
+    }
+    m_zoom = kMinZoom;
+    m_panX = 0.0;
+    m_panY = 0.0;
+    m_layoutDirty = true;
+    m_labelsDirty = true;
+    clearHover();
+    Q_EMIT viewChanged();
+    update();
+}
+
+void TreemapItem::zoomAt(qreal x, qreal y, qreal factor)
+{
+    const qreal target = std::clamp(m_zoom * factor, kMinZoom, kMaxZoom);
+    if (qFuzzyCompare(target, m_zoom)) {
+        return;
+    }
+
+    // Keep the content under (x, y) where it is: the content coordinate of
+    // that point scales with the zoom, so the pan has to absorb the rest.
+    const qreal ratio = target / m_zoom;
+    m_panX = (x + m_panX) * ratio - x;
+    m_panY = (y + m_panY) * ratio - y;
+    m_zoom = target;
+    clampPan();
+
+    m_layoutDirty = true;
+    m_labelsDirty = true;
+    clearHover();
+    Q_EMIT viewChanged();
+    update();
+}
+
+void TreemapItem::zoomBy(qreal factor)
+{
+    zoomAt(width() * 0.5, height() * 0.5, factor);
 }
 
 void TreemapItem::setSelectedIndex(int index)
@@ -312,9 +427,12 @@ void TreemapItem::relayout()
 
     QElapsedTimer timer;
     timer.start();
+    // The layout runs over the zoomed content rectangle, offset by the pan, so
+    // every rect it produces is already in view coordinates. Drawing, hit
+    // testing and labelling then need no transform at all.
     Treemap::layout(
         *root,
-        { 0.0, 0.0, width(), height() },
+        { -m_panX, -m_panY, width() * m_zoom, height() * m_zoom },
         options,
         m_layout);
     m_lastLayoutMicros = static_cast<int>(timer.nsecsElapsed() / 1000);
@@ -331,35 +449,37 @@ void TreemapItem::relayout()
 auto TreemapItem::colorFor(const Treemap::LayoutItem &item, qint64 now) const
     -> QColor
 {
-    static const QColor kPending { 22, 26, 33 };
-    static const QColor kUnknown { 30, 34, 42 };
-    static const QColor kFlash { 255, 250, 228 };
+    const MapPalette palette = mapPalette(m_darkTheme);
 
     if (m_model == nullptr || item.node->leafIndex < 0) {
-        return kUnknown;
+        return palette.unknown;
     }
     const auto index = static_cast<std::size_t>(item.node->leafIndex);
     if (index >= m_model->leaves().size()) {
-        return kUnknown;
+        return palette.unknown;
     }
     const LeafVisual &leaf = m_model->leaves()[index];
 
     QColor base;
     if (m_colorMode == 1) {
         const double scale = std::max(1.0, m_model->scaleMaxDeltaMs());
-        base = toQColor(
-            delta(static_cast<float>(
-                static_cast<double>(leaf.deltaMs) / scale)));
+        base = toQColor(delta(
+            static_cast<float>(static_cast<double>(leaf.deltaMs) / scale),
+            m_darkTheme));
     }
     else {
-        base = toQColor(heat(heatPosition(
-            static_cast<double>(leaf.durationMs),
-            m_model->scaleMaxMs())));
+        base = toQColor(heat(
+            heatPosition(
+                static_cast<double>(leaf.durationMs),
+                m_model->scaleMaxMs()),
+            m_darkTheme));
     }
+
+    const QColor &kFlash = palette.flash;
 
     switch (leaf.state) {
     case LeafState::Pending :
-        return kPending;
+        return palette.pending;
     case LeafState::Running : {
         // Subtle pulse: the outline carries the "in flight" signal, the fill
         // just breathes so a wall of active files reads as shimmer.
@@ -400,7 +520,7 @@ auto TreemapItem::needsAnimation(qint64 now) const -> bool
     return false;
 }
 
-void TreemapItem::renderLabels()
+void TreemapItem::renderLabels(qint64 now)
 {
     m_labelsDirty = false;
 
@@ -422,22 +542,34 @@ void TreemapItem::renderLabels()
     QPainter painter { &m_labelImage };
     painter.setRenderHint(QPainter::TextAntialiasing, true);
 
+    const MapPalette palette = mapPalette(m_darkTheme);
+
     QFont directoryFont = QGuiApplication::font();
     directoryFont.setPixelSize(10);
     directoryFont.setWeight(QFont::DemiBold);
+
+    // Leaf labels get two sizes. A file name is the thing users are hunting
+    // for, so a cramped cell gets a smaller font rather than no name at all;
+    // below the smaller size there genuinely is no room and zooming is the
+    // answer, which is what the zoom hint in the corner tells them.
     QFont leafFont = QGuiApplication::font();
-    leafFont.setPixelSize(10);
+    leafFont.setPixelSize(11);
+    QFont smallLeafFont = QGuiApplication::font();
+    smallLeafFont.setPixelSize(9);
 
     for (const auto &item : m_layout) {
         const Treemap::Rect &rect = item.rect;
-        if (rect.w < kMinLabelWidth || rect.h < kMinLabelHeight) {
+        if (!onScreen(rect, width(), height())) {
             continue;
         }
 
         if (!item.isCell) {
+            if (rect.w < kMinLabelWidth || rect.h < kMinLabelHeight) {
+                continue;
+            }
             // Directory header band.
             painter.setFont(directoryFont);
-            painter.setPen(QColor { 168, 180, 196 });
+            painter.setPen(palette.directoryLabel);
             const QRectF band {
                 rect.x + 4.0,
                 rect.y + 1.0,
@@ -452,17 +584,19 @@ void TreemapItem::renderLabels()
             continue;
         }
 
-        // Leaf label, only when the cell is genuinely big enough to read.
-        if (rect.w < 70.0 || rect.h < 20.0) {
+        const bool roomy = rect.w >= 58.0 && rect.h >= 16.0;
+        const bool tight = rect.w >= 34.0 && rect.h >= 11.0;
+        if (!roomy && !tight) {
             continue;
         }
-        painter.setFont(leafFont);
-        painter.setPen(QColor { 12, 14, 18, 210 });
+        painter.setFont(roomy ? leafFont : smallLeafFont);
+        // Contrast against the cell, not against the theme; see labelInkFor.
+        painter.setPen(labelInkFor(colorFor(item, now)));
         const QRectF box {
-            rect.x + 4.0,
-            rect.y + 3.0,
-            rect.w - 8.0,
-            rect.h - 6.0
+            rect.x + 3.0,
+            rect.y + 2.0,
+            rect.w - 6.0,
+            rect.h - 4.0
         };
         const QString text = painter.fontMetrics().elidedText(
             QString::fromStdString(item.node->name),
@@ -534,9 +668,16 @@ auto TreemapItem::updatePaintNode(QSGNode *old, UpdatePaintNodeData *)
     const qint64 now = nowMs();
 
     // ---- fills ----------------------------------------------------------
+    const MapPalette palette = mapPalette(m_darkTheme);
+    const double viewW = width();
+    const double viewH = height();
+
     int cellCount = 0;
     int directoryCount = 0;
     for (const auto &item : m_layout) {
+        if (!onScreen(item.rect, viewW, viewH)) {
+            continue;
+        }
         if (item.isCell) {
             ++cellCount;
         }
@@ -552,7 +693,7 @@ auto TreemapItem::updatePaintNode(QSGNode *old, UpdatePaintNodeData *)
     }
     auto *fillCursor = fillGeometry->vertexDataAsColoredPoint2D();
     for (const auto &item : m_layout) {
-        if (item.isCell) {
+        if (item.isCell && onScreen(item.rect, viewW, viewH)) {
             appendQuad(fillCursor, item.rect, colorFor(item, now));
         }
     }
@@ -566,23 +707,24 @@ auto TreemapItem::updatePaintNode(QSGNode *old, UpdatePaintNodeData *)
     }
     auto *borderCursor = borderGeometry->vertexDataAsColoredPoint2D();
     for (const auto &item : m_layout) {
-        if (item.isCell || item.depth == 0) {
+        if (item.isCell || item.depth == 0
+            || !onScreen(item.rect, viewW, viewH)) {
             continue;
         }
-        // Shallower directories get a brighter frame, so the nesting reads
+        // Shallower directories get a stronger frame, so the nesting reads
         // as a hierarchy rather than as noise.
         const int alpha = std::max(40, 190 - 34 * (item.depth - 1));
-        appendOutline(
-            borderCursor,
-            item.rect,
-            QColor { 128, 146, 170, alpha });
+        QColor outline = palette.directoryOutline;
+        outline.setAlpha(alpha);
+        appendOutline(borderCursor, item.rect, outline);
     }
     borders->markDirty(QSGNode::DirtyGeometry);
 
     // ---- in-flight, hover and selection ----------------------------------
     int highlightCount = 0;
     for (const auto &item : m_layout) {
-        if (!item.isCell || item.node->leafIndex < 0) {
+        if (!item.isCell || item.node->leafIndex < 0
+            || !onScreen(item.rect, viewW, viewH)) {
             continue;
         }
         const auto index = static_cast<std::size_t>(item.node->leafIndex);
@@ -611,16 +753,16 @@ auto TreemapItem::updatePaintNode(QSGNode *old, UpdatePaintNodeData *)
             180.0 + 75.0 * std::sin(phase * 2.0 * M_PI));
 
         for (const auto &item : m_layout) {
-            if (!item.isCell || item.node->leafIndex < 0) {
+            if (!item.isCell || item.node->leafIndex < 0
+                || !onScreen(item.rect, viewW, viewH)) {
                 continue;
             }
             const auto index = static_cast<std::size_t>(item.node->leafIndex);
             if (index < m_model->leaves().size()
                 && m_model->leaves()[index].state == LeafState::Running) {
-                appendDoubleOutline(
-                    cursor,
-                    item.rect,
-                    QColor { 255, 244, 214, std::clamp(pulseAlpha, 0, 255) });
+                QColor pulse = palette.flash;
+                pulse.setAlpha(std::clamp(pulseAlpha, 0, 255));
+                appendDoubleOutline(cursor, item.rect, pulse);
             }
         }
 
@@ -637,7 +779,7 @@ auto TreemapItem::updatePaintNode(QSGNode *old, UpdatePaintNodeData *)
         };
 
         if (m_hoveredLeaf >= 0 || m_hoveredIsDirectory) {
-            outlineOf(m_hoveredPath, QColor { 236, 242, 250, 235 });
+            outlineOf(m_hoveredPath, palette.hover);
         }
         if (m_selectedLeaf >= 0
             && static_cast<std::size_t>(m_selectedLeaf)
@@ -647,14 +789,14 @@ auto TreemapItem::updatePaintNode(QSGNode *old, UpdatePaintNodeData *)
                     m_model->targets()[static_cast<std::size_t>(
                                            m_selectedLeaf)]
                         .treePath),
-                QColor { 242, 160, 61, 255 });
+                palette.selection);
         }
     }
     highlight->markDirty(QSGNode::DirtyGeometry);
 
     // ---- labels -----------------------------------------------------------
     if (m_labelsDirty) {
-        renderLabels();
+        renderLabels(now);
         if (window() != nullptr) {
             // The label layer is drawn on top of the cells and is almost
             // entirely transparent. Marking it opaque paints the whole map
@@ -774,6 +916,57 @@ void TreemapItem::mousePressEvent(QMouseEvent *event)
         return;
     }
 
+    // A press is ambiguous until it either moves (pan) or does not (select),
+    // so nothing is decided here beyond remembering where it started.
+    m_pressPos = event->position();
+    m_panAtPress = QPointF { m_panX, m_panY };
+    m_pressWasOnCell = cellAt(m_pressPos) != nullptr;
+    event->accept();
+}
+
+void TreemapItem::mouseMoveEvent(QMouseEvent *event)
+{
+    const QPointF delta = event->position() - m_pressPos;
+
+    if (!m_panning) {
+        if (m_zoom <= kMinZoom
+            || QPointF::dotProduct(delta, delta)
+                < kDragThreshold * kDragThreshold) {
+            event->accept();
+            return;
+        }
+        m_panning = true;
+        Q_EMIT panningChanged();
+    }
+
+    // Dragging moves the content with the cursor, so the pan goes the other
+    // way. Computed from the press position rather than accumulated, so a
+    // slow drag cannot drift.
+    m_panX = m_panAtPress.x() - delta.x();
+    m_panY = m_panAtPress.y() - delta.y();
+    clampPan();
+    m_layoutDirty = true;
+    m_labelsDirty = true;
+    clearHover();
+    Q_EMIT viewChanged();
+    update();
+    event->accept();
+}
+
+void TreemapItem::mouseReleaseEvent(QMouseEvent *event)
+{
+    if (m_panning) {
+        m_panning = false;
+        Q_EMIT panningChanged();
+        updateHover(event->position());
+        event->accept();
+        return;
+    }
+    if (event->button() != Qt::LeftButton) {
+        event->ignore();
+        return;
+    }
+
     const Treemap::LayoutItem *item = cellAt(event->position());
     if (item == nullptr) {
         event->ignore();
@@ -790,6 +983,26 @@ void TreemapItem::mousePressEvent(QMouseEvent *event)
         Q_EMIT directoryActivated(
             QString::fromStdString(item->node->path));
     }
+    event->accept();
+}
+
+void TreemapItem::wheelEvent(QWheelEvent *event)
+{
+    const QPoint pixels = event->pixelDelta();
+    const QPoint degrees = event->angleDelta();
+    const int amount = degrees.y() != 0 ? degrees.y() : pixels.y();
+    if (amount == 0) {
+        event->ignore();
+        return;
+    }
+
+    // One notch is 120 eighths of a degree. 1.25 per notch is small enough to
+    // feel continuous and large enough that a few flicks cross the range.
+    const qreal notches = static_cast<qreal>(amount) / 120.0;
+    zoomAt(
+        event->position().x(),
+        event->position().y(),
+        std::pow(1.25, notches));
     event->accept();
 }
 

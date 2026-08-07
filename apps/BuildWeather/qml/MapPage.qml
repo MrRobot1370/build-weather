@@ -11,6 +11,10 @@ Item {
 
     readonly property bool empty: !AppContext.build.hasData
 
+    Shortcut { sequence: "Ctrl+0"; onActivated: map.fitToView() }
+    Shortcut { sequence: StandardKey.ZoomIn;  onActivated: map.zoomBy(1.6) }
+    Shortcut { sequence: StandardKey.ZoomOut; onActivated: map.zoomBy(1 / 1.6) }
+
     RowLayout {
         anchors.fill: parent
         anchors.margins: Style.space3
@@ -39,6 +43,38 @@ Item {
                     font.pixelSize: Style.fontSizeS
                     color: Style.textSecondary
                     elide: Text.ElideMiddle
+                }
+
+                // ---- zoom -------------------------------------------------
+                ButtonBW {
+                    text: "−"
+                    implicitWidth: 28
+                    enabled: map.zoom > map.minZoom
+                    onClicked: map.zoomBy(1 / 1.6)
+                }
+                TextBW {
+                    text: map.zoom < 1.05 ? "fit" : map.zoom.toFixed(1) + "x"
+                    variant: TextBW.Mono
+                    font.pixelSize: Style.fontSizeS
+                    color: map.zoom > 1.05 ? Style.accent : Style.textFaint
+                    horizontalAlignment: Text.AlignHCenter
+                    Layout.preferredWidth: 42
+                }
+                ButtonBW {
+                    text: "+"
+                    implicitWidth: 28
+                    enabled: map.zoom < map.maxZoom
+                    onClicked: map.zoomBy(1.6)
+                }
+                ButtonBW {
+                    text: "Fit"
+                    enabled: map.zoom > map.minZoom
+                    onClicked: map.fitToView()
+                    ToolTipBW {
+                        visible: fitHover.hovered
+                        text: "Show the whole tree again (Ctrl+0)"
+                    }
+                    HoverHandler { id: fitHover }
                 }
 
                 CheckBox {
@@ -105,8 +141,8 @@ Item {
                             AppContext.showMessage(
                                 "Load a baseline build on the Compare tab first.",
                                 true)
-                            currentIndex = 0
-                            return
+                            return   // currentIndex is bound to map.colorMode,
+                                     // which stays put, so the control does too
                         }
                         map.colorMode = index
                     }
@@ -130,12 +166,42 @@ Item {
                     model: AppContext.build
                     stableOrder: stableCheck.checked
                     showLabels: labelCheck.checked
+                    darkTheme: Style.dark
 
                     onLeafActivated: function(index, path) {
                         inspector.pinnedPath = path
                     }
                     onDirectoryActivated: function(path) {
                         inspector.pinnedPath = path
+                    }
+                }
+
+                // Only show the grab cursor once there is somewhere to drag
+                // to, so at fit zoom the pointer still says "click me".
+                MouseArea {
+                    anchors.fill: map
+                    acceptedButtons: Qt.NoButton
+                    cursorShape: map.panning ? Qt.ClosedHandCursor
+                                 : (map.zoom > 1.0 ? Qt.OpenHandCursor
+                                                   : Qt.ArrowCursor)
+                }
+
+                // Discoverability: nothing else tells you the map zooms.
+                Rectangle {
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    anchors.margins: Style.space2
+                    visible: !page.empty && map.zoom < 1.05
+                    width: hint.implicitWidth + 2 * Style.space1
+                    height: hint.implicitHeight + Style.space1
+                    radius: Style.radiusS
+                    color: Style.overlay
+                    TextBW {
+                        id: hint
+                        anchors.centerIn: parent
+                        text: "scroll to zoom  ·  drag to pan  ·  double click to drill in"
+                        variant: TextBW.Faint
+                        color: Style.dark ? Style.textMuted : "#E8EAEE"
                     }
                 }
 

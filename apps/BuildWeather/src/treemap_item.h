@@ -14,6 +14,14 @@
 //
 // Only `fills` and `highlight` are touched while the build animates, so a
 // frame during a live build costs a vertex buffer refill and nothing else.
+//
+// ZOOM: the layout is recomputed over a rectangle of `zoom` times the item
+// size and offset by the pan, rather than the finished picture being scaled up.
+// That costs a relayout per zoom step and is worth it: cells get genuinely
+// bigger, so labels re-render crisply instead of turning into blurry pixels,
+// more of them pass the legibility threshold, and directories that were too
+// small to recurse into open up. On a 1600-file project that is the difference
+// between a pretty picture and a usable one.
 
 #include "BW/Treemap/squarify.h"
 #include "build_model.h"
@@ -48,6 +56,19 @@ class TreemapItem : public QQuickItem
                    NOTIFY stableOrderChanged)
     Q_PROPERTY(bool showLabels READ showLabels WRITE setShowLabels
                    NOTIFY showLabelsChanged)
+    /// Follows Style.dark. The map has its own palette because it is the one
+    /// surface whose colours carry data rather than decoration.
+    Q_PROPERTY(bool darkTheme READ darkTheme WRITE setDarkTheme
+                   NOTIFY darkThemeChanged)
+
+    /// 1.0 fits the whole tree; larger zooms in. Pan is in item pixels and is
+    /// clamped so the content cannot be dragged off screen.
+    Q_PROPERTY(qreal zoom READ zoom WRITE setZoom NOTIFY viewChanged)
+    Q_PROPERTY(qreal panX READ panX WRITE setPanX NOTIFY viewChanged)
+    Q_PROPERTY(qreal panY READ panY WRITE setPanY NOTIFY viewChanged)
+    Q_PROPERTY(qreal minZoom READ minZoom CONSTANT)
+    Q_PROPERTY(qreal maxZoom READ maxZoom CONSTANT)
+    Q_PROPERTY(bool panning READ panning NOTIFY panningChanged)
 
     Q_PROPERTY(int hoveredIndex READ hoveredIndex NOTIFY hoverChanged)
     Q_PROPERTY(QString hoveredPath READ hoveredPath NOTIFY hoverChanged)
@@ -108,6 +129,66 @@ public:
     }
 
     void setShowLabels(bool show);
+
+    [[nodiscard]]
+    auto darkTheme() const -> bool
+    {
+        return m_darkTheme;
+    }
+
+    void setDarkTheme(bool dark);
+
+    [[nodiscard]]
+    auto zoom() const -> qreal
+    {
+        return m_zoom;
+    }
+
+    void setZoom(qreal zoom);
+
+    [[nodiscard]]
+    auto panX() const -> qreal
+    {
+        return m_panX;
+    }
+
+    void setPanX(qreal pan);
+
+    [[nodiscard]]
+    auto panY() const -> qreal
+    {
+        return m_panY;
+    }
+
+    void setPanY(qreal pan);
+
+    [[nodiscard]]
+    auto minZoom() const -> qreal
+    {
+        return kMinZoom;
+    }
+
+    [[nodiscard]]
+    auto maxZoom() const -> qreal
+    {
+        return kMaxZoom;
+    }
+
+    [[nodiscard]]
+    auto panning() const -> bool
+    {
+        return m_panning;
+    }
+
+    /// Back to showing the whole tree.
+    Q_INVOKABLE void fitToView();
+
+    /// Multiplies the zoom, keeping the content under (`x`, `y`) in place.
+    /// Pass the item centre to zoom without a focus point.
+    Q_INVOKABLE void zoomAt(qreal x, qreal y, qreal factor);
+
+    /// Zooms about the centre of the view.
+    Q_INVOKABLE void zoomBy(qreal factor);
 
     [[nodiscard]]
     auto hoveredIndex() const -> int
@@ -186,6 +267,9 @@ Q_SIGNALS:
     void focusPathChanged();
     void stableOrderChanged();
     void showLabelsChanged();
+    void darkThemeChanged();
+    void viewChanged();
+    void panningChanged();
     void hoverChanged();
     void selectionChanged();
     void layoutChanged();
@@ -203,7 +287,10 @@ protected:
     void hoverMoveEvent(QHoverEvent *event) override;
     void hoverLeaveEvent(QHoverEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
     void mouseDoubleClickEvent(QMouseEvent *event) override;
+    void wheelEvent(QWheelEvent *event) override;
 
 private Q_SLOTS:
     void onTreeChanged();
@@ -217,6 +304,8 @@ private:
     /// Starts or stops the 60 Hz clock. GUI thread only: updatePaintNode
     /// runs on the render thread and must not touch a QTimer.
     void syncAnimationTimer();
+    /// Keeps the pan inside the content, which grows with the zoom.
+    void clampPan();
 
     [[nodiscard]]
     auto rootNode() const -> const Treemap::Node *;
@@ -231,7 +320,7 @@ private:
     [[nodiscard]]
     auto needsAnimation(qint64 now) const -> bool;
 
-    void renderLabels();
+    void renderLabels(qint64 now);
 
     BuildModel *m_model { nullptr };
 
@@ -242,6 +331,16 @@ private:
     QString m_focusPath;
     QString m_hoveredPath;
     QPointF m_hoveredAnchor;
+
+    qreal m_zoom { 1.0 };
+    qreal m_panX { 0.0 };
+    qreal m_panY { 0.0 };
+    /// Press position and pan at press, so a drag is a delta rather than an
+    /// accumulation of rounding errors.
+    QPointF m_pressPos;
+    QPointF m_panAtPress;
+    bool m_panning { false };
+    bool m_pressWasOnCell { false };
 
     quint64 m_seenTreeRevision { 0 };
     int m_colorMode { 0 };
@@ -258,6 +357,13 @@ private:
     bool m_showLabels { true };
     bool m_layoutDirty { true };
     bool m_labelsDirty { true };
+    bool m_darkTheme { true };
+
+    static constexpr qreal kMinZoom = 1.0;
+    static constexpr qreal kMaxZoom = 64.0;
+    /// A press has to move this far before it counts as a pan rather than a
+    /// click, so selecting a small cell still works.
+    static constexpr qreal kDragThreshold = 4.0;
 };
 
 }
