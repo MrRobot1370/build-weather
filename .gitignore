@@ -1,0 +1,15 @@
+# Anchored to the repository root on purpose. An unanchored `build/` matches
+# a directory named `build` at ANY depth, and git on Windows matches ignore
+# patterns case-insensitively, so it silently swallowed the whole of
+# libs/BW_Build/include/BW/Build/ and libs/BW_Build/src/BW/Build/.
+/build/
+/install/
+/out/
+/dist/
+
+.vs/
+.vscode/
+.cache/
+*.user
+CMakeUserPresets.json
+compile_commands.json

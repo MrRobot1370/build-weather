@@ -1,0 +1,16 @@
+# Enforce CRLF line endings for source/text files on this Windows project.
+# Per-extension only (no repo-wide `* text=auto`).
+*.txt   text eol=crlf
+*.h     text eol=crlf
+*.hpp   text eol=crlf
+*.cpp   text eol=crlf
+*.py    text eol=crlf
+*.qml   text eol=crlf
+*.json  text eol=crlf
+*.md    text eol=crlf
+*.cmake text eol=crlf
+*.ps1   text eol=crlf
+
+# A .ninja_log is a byte-exact reproduction of ninja's own output (LF, tabs);
+# never let git rewrite it.
+tests/data/*.ninja_log -text

@@ -1,0 +1,52 @@
+---
+BasedOnStyle: WebKit
+Language: Cpp
+Standard: c++20
+TabWidth: '4'
+UseTab: Never
+AccessModifierOffset: -4
+AlignAfterOpenBracket: AlwaysBreak
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowShortFunctionsOnASingleLine: false
+BreakAfterAttributes: Always
+AlwaysBreakTemplateDeclarations: Yes
+BreakBeforeBraces: Custom
+BinPackArguments: false
+BinPackParameters: false
+ColumnLimit: 80
+CompactNamespaces: false
+NamespaceIndentation: None
+DerivePointerAlignment: false
+SpaceAroundPointerQualifiers: After
+PointerAlignment: Right
+SpaceAfterLogicalNot: false
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeCaseColon: true
+SpaceBeforeCpp11BracedList: true
+SpaceBeforeCtorInitializerColon: true
+SpaceBeforeParens: ControlStatements
+SpaceBeforeRangeBasedForLoopColon: true
+SpaceBeforeSquareBrackets: false
+SpaceInEmptyParentheses: false
+SortIncludes: CaseSensitive
+SortUsingDeclarations: true
+PenaltyReturnTypeOnItsOwnLine: 500
+WhitespaceSensitiveMacros:
+  - Q_PROPERTY
+BraceWrapping:
+  AfterEnum: true
+  AfterStruct: true
+  AfterUnion: true
+  AfterClass: true
+  AfterCaseLabel: true
+  AfterFunction: true
+  AfterNamespace: true
+  BeforeCatch: true
+  BeforeElse : true
+  BeforeLambdaBody: false
+  BeforeWhile: true
+  IndentBraces: false
+  SplitEmptyFunction: true
+  SplitEmptyRecord : true
+...
