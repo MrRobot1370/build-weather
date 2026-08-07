@@ -1,0 +1,263 @@
+#pragma once
+
+// The map.
+//
+// One QQuickItem for the whole tree, never one QML Item per file: at several
+// thousand leaves that would be several thousand QObjects, bindings and
+// batches. Instead the layout is computed in plain C++ and turned into four
+// scene graph nodes:
+//
+//   fills      triangles, vertex-coloured, one quad per cell
+//   borders    lines, directory outlines, rebuilt only on relayout
+//   highlight  lines, in-flight outlines plus hover and selection
+//   labels     one cached texture painted with QPainter
+//
+// Only `fills` and `highlight` are touched while the build animates, so a
+// frame during a live build costs a vertex buffer refill and nothing else.
+
+#include "BW/Treemap/squarify.h"
+#include "build_model.h"
+
+#include <QColor>
+#include <QImage>
+#include <QQuickItem>
+#include <QTimer>
+#include <QtQml/qqmlregistration.h>
+
+#include <vector>
+
+namespace BW::UI
+{
+
+class TreemapItem : public QQuickItem
+{
+    Q_OBJECT
+    QML_ELEMENT
+
+    Q_PROPERTY(BW::UI::BuildModel *model READ model WRITE setModel
+                   NOTIFY modelChanged)
+    /// 0 = compile time heat, 1 = delta against the baseline build.
+    Q_PROPERTY(int colorMode READ colorMode WRITE setColorMode
+                   NOTIFY colorModeChanged)
+    /// Drill-down root. Empty means the whole tree.
+    Q_PROPERTY(QString focusPath READ focusPath WRITE setFocusPath
+                   NOTIFY focusPathChanged)
+    /// Order::ByName keeps a file in the same place between builds, which is
+    /// what makes two runs comparable. Off trades that for tighter squares.
+    Q_PROPERTY(bool stableOrder READ stableOrder WRITE setStableOrder
+                   NOTIFY stableOrderChanged)
+    Q_PROPERTY(bool showLabels READ showLabels WRITE setShowLabels
+                   NOTIFY showLabelsChanged)
+
+    Q_PROPERTY(int hoveredIndex READ hoveredIndex NOTIFY hoverChanged)
+    Q_PROPERTY(QString hoveredPath READ hoveredPath NOTIFY hoverChanged)
+    Q_PROPERTY(bool hoveredIsDirectory READ hoveredIsDirectory
+                   NOTIFY hoverChanged)
+    Q_PROPERTY(qint64 hoveredDurationMs READ hoveredDurationMs
+                   NOTIFY hoverChanged)
+    Q_PROPERTY(qint64 hoveredDeltaMs READ hoveredDeltaMs NOTIFY hoverChanged)
+    Q_PROPERTY(int hoveredRank READ hoveredRank NOTIFY hoverChanged)
+    Q_PROPERTY(int hoveredLeafCount READ hoveredLeafCount NOTIFY hoverChanged)
+    Q_PROPERTY(QPointF hoveredAnchor READ hoveredAnchor NOTIFY hoverChanged)
+
+    Q_PROPERTY(int selectedIndex READ selectedIndex WRITE setSelectedIndex
+                   NOTIFY selectionChanged)
+    Q_PROPERTY(int cellCount READ cellCount NOTIFY layoutChanged)
+    Q_PROPERTY(int lastLayoutMicros READ lastLayoutMicros NOTIFY layoutChanged)
+
+public:
+    explicit TreemapItem(QQuickItem *parent = nullptr);
+    ~TreemapItem() override;
+
+    [[nodiscard]]
+    auto model() const -> BuildModel *
+    {
+        return m_model;
+    }
+
+    void setModel(BuildModel *model);
+
+    [[nodiscard]]
+    auto colorMode() const -> int
+    {
+        return m_colorMode;
+    }
+
+    void setColorMode(int mode);
+
+    [[nodiscard]]
+    auto focusPath() const -> QString
+    {
+        return m_focusPath;
+    }
+
+    void setFocusPath(const QString &path);
+
+    [[nodiscard]]
+    auto stableOrder() const -> bool
+    {
+        return m_stableOrder;
+    }
+
+    void setStableOrder(bool stable);
+
+    [[nodiscard]]
+    auto showLabels() const -> bool
+    {
+        return m_showLabels;
+    }
+
+    void setShowLabels(bool show);
+
+    [[nodiscard]]
+    auto hoveredIndex() const -> int
+    {
+        return m_hoveredLeaf;
+    }
+
+    [[nodiscard]]
+    auto hoveredPath() const -> QString
+    {
+        return m_hoveredPath;
+    }
+
+    [[nodiscard]]
+    auto hoveredIsDirectory() const -> bool
+    {
+        return m_hoveredIsDirectory;
+    }
+
+    [[nodiscard]]
+    auto hoveredDurationMs() const -> qint64
+    {
+        return m_hoveredDurationMs;
+    }
+
+    [[nodiscard]]
+    auto hoveredDeltaMs() const -> qint64
+    {
+        return m_hoveredDeltaMs;
+    }
+
+    [[nodiscard]]
+    auto hoveredRank() const -> int
+    {
+        return m_hoveredRank;
+    }
+
+    [[nodiscard]]
+    auto hoveredLeafCount() const -> int
+    {
+        return m_hoveredLeafCount;
+    }
+
+    [[nodiscard]]
+    auto hoveredAnchor() const -> QPointF
+    {
+        return m_hoveredAnchor;
+    }
+
+    [[nodiscard]]
+    auto selectedIndex() const -> int
+    {
+        return m_selectedLeaf;
+    }
+
+    void setSelectedIndex(int index);
+
+    [[nodiscard]]
+    auto cellCount() const -> int
+    {
+        return m_cellCount;
+    }
+
+    [[nodiscard]]
+    auto lastLayoutMicros() const -> int
+    {
+        return m_lastLayoutMicros;
+    }
+
+    /// Moves the drill-down root one level up. Returns false at the top.
+    Q_INVOKABLE bool focusParent();
+
+Q_SIGNALS:
+    void modelChanged();
+    void colorModeChanged();
+    void focusPathChanged();
+    void stableOrderChanged();
+    void showLabelsChanged();
+    void hoverChanged();
+    void selectionChanged();
+    void layoutChanged();
+
+    /// A leaf was clicked: `index` is the index into BuildModel::targets().
+    void leafActivated(int index, const QString &path);
+    /// A directory was clicked; the caller usually drills into it.
+    void directoryActivated(const QString &path);
+
+protected:
+    auto updatePaintNode(QSGNode *old, UpdatePaintNodeData *)
+        -> QSGNode * override;
+    void geometryChange(const QRectF &newGeometry, const QRectF &oldGeometry)
+        override;
+    void hoverMoveEvent(QHoverEvent *event) override;
+    void hoverLeaveEvent(QHoverEvent *event) override;
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseDoubleClickEvent(QMouseEvent *event) override;
+
+private Q_SLOTS:
+    void onTreeChanged();
+    void onValuesChanged();
+    void onAnimationTick();
+
+private:
+    void relayout();
+    void updateHover(const QPointF &position);
+    void clearHover();
+    /// Starts or stops the 60 Hz clock. GUI thread only: updatePaintNode
+    /// runs on the render thread and must not touch a QTimer.
+    void syncAnimationTimer();
+
+    [[nodiscard]]
+    auto rootNode() const -> const Treemap::Node *;
+
+    [[nodiscard]]
+    auto cellAt(const QPointF &position) const -> const Treemap::LayoutItem *;
+
+    [[nodiscard]]
+    auto colorFor(const Treemap::LayoutItem &item, qint64 now) const
+        -> QColor;
+
+    [[nodiscard]]
+    auto needsAnimation(qint64 now) const -> bool;
+
+    void renderLabels();
+
+    BuildModel *m_model { nullptr };
+
+    std::vector<Treemap::LayoutItem> m_layout;
+    QImage m_labelImage;
+    QTimer m_animationTimer;
+
+    QString m_focusPath;
+    QString m_hoveredPath;
+    QPointF m_hoveredAnchor;
+
+    quint64 m_seenTreeRevision { 0 };
+    int m_colorMode { 0 };
+    int m_hoveredLeaf { -1 };
+    int m_hoveredRank { 0 };
+    int m_hoveredLeafCount { 0 };
+    qint64 m_hoveredDurationMs { 0 };
+    qint64 m_hoveredDeltaMs { 0 };
+    int m_selectedLeaf { -1 };
+    int m_cellCount { 0 };
+    int m_lastLayoutMicros { 0 };
+    bool m_hoveredIsDirectory { false };
+    bool m_stableOrder { true };
+    bool m_showLabels { true };
+    bool m_layoutDirty { true };
+    bool m_labelsDirty { true };
+};
+
+}
