@@ -451,9 +451,26 @@ auto TreemapItem::colorFor(const Treemap::LayoutItem &item, qint64 now) const
 {
     const MapPalette palette = mapPalette(m_darkTheme);
 
-    if (m_model == nullptr || item.node->leafIndex < 0) {
+    if (m_model == nullptr) {
         return palette.unknown;
     }
+
+    // A directory too small to recurse into is still drawn as a cell, and
+    // painting it neutral would hide cost: at fit zoom on a large project
+    // most boxes are collapsed directories, and a map that greys them out
+    // stops showing where the time goes. Colour it by the mean duration of
+    // the files inside, which is directly comparable to a leaf's colour and,
+    // unlike the total, does not make every directory look like the hottest
+    // file in it.
+    if (item.node->leafIndex < 0) {
+        if (item.node->leafCount <= 0) {
+            return palette.unknown;
+        }
+        const double mean = item.node->value / item.node->leafCount;
+        return toQColor(
+            heat(heatPosition(mean, m_model->scaleMaxMs()), m_darkTheme));
+    }
+
     const auto index = static_cast<std::size_t>(item.node->leafIndex);
     if (index >= m_model->leaves().size()) {
         return palette.unknown;
@@ -872,7 +889,24 @@ void TreemapItem::updateHover(const QPointF &position)
         else {
             // A directory shows the cost of everything under it, which is
             // the number you actually want when scanning for a hot module.
-            m_hoveredDurationMs = static_cast<qint64>(item->node->value);
+            //
+            // Summed from the leaves rather than taken from Node::value,
+            // because that value is the *area* weight and carries a minimum
+            // per leaf so a zero-duration file stays visible. Over a
+            // directory of hundreds of cheap files those floors add up, and
+            // a tooltip that claims to report a total has to report the
+            // total.
+            qint64 total = 0;
+            Treemap::walk(*item->node, [&](const Treemap::Node &node, int) {
+                if (node.leafIndex < 0) {
+                    return;
+                }
+                const auto leaf = static_cast<std::size_t>(node.leafIndex);
+                if (leaf < m_model->targets().size()) {
+                    total += m_model->targets()[leaf].durationMs;
+                }
+            });
+            m_hoveredDurationMs = total;
         }
     }
 

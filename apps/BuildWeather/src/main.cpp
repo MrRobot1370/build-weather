@@ -37,8 +37,14 @@ auto main(int argc, char *argv[]) -> int
         "Source root, when it cannot be inferred from the build directory.",
         "dir"
     };
+    const QCommandLineOption baselineOption {
+        QStringList { "baseline" },
+        "Baseline .ninja_log to compare the loaded build against.",
+        "file"
+    };
     parser.addOption(tracesOption);
     parser.addOption(sourceOption);
+    parser.addOption(baselineOption);
     parser.process(app);
 
     QQmlApplicationEngine engine;
@@ -84,6 +90,10 @@ auto main(int argc, char *argv[]) -> int
         if (!parser.value(tracesOption).isEmpty()) {
             context->loadTraces(
                 QUrl::fromLocalFile(parser.value(tracesOption)));
+        }
+        if (!parser.value(baselineOption).isEmpty()) {
+            context->openBaseline(
+                QUrl::fromLocalFile(parser.value(baselineOption)));
         }
     }
 

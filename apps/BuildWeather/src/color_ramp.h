@@ -171,11 +171,14 @@ inline auto mapPalette(bool dark) -> MapPalette
                  QColor { 236, 242, 250, 235 },
                  QColor { 242, 160, 61 } };
     }
+    // `pending` is a cool grey on purpose. The light ramp's cheap end is a
+    // warm cream, and during a live build "not started yet" has to be
+    // distinguishable from "done, and it was cheap" at a glance.
     return { QColor { 96, 108, 126 },
              QColor { 58, 68, 84 },
              QColor { 28, 24, 20, 225 },
-             QColor { 222, 226, 233 },
-             QColor { 208, 213, 221 },
+             QColor { 201, 208, 218 },
+             QColor { 186, 193, 204 },
              QColor { 90, 20, 12 },
              QColor { 24, 32, 44, 235 },
              QColor { 176, 92, 8 } };

@@ -191,7 +191,11 @@ Item {
                     anchors.right: parent.right
                     anchors.bottom: parent.bottom
                     anchors.margins: Style.space2
+                    // Out of the way as soon as it would compete with the
+                    // tooltip or with a running build.
                     visible: !page.empty && map.zoom < 1.05
+                             && map.hoveredPath === ""
+                             && !AppContext.runner.running
                     width: hint.implicitWidth + 2 * Style.space1
                     height: hint.implicitHeight + Style.space1
                     radius: Style.radiusS
