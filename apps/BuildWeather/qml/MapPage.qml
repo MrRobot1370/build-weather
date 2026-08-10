@@ -187,19 +187,37 @@ Item {
                 }
 
                 // Discoverability: nothing else tells you the map zooms.
+                //
+                // It floats over the map, so it necessarily covers a cell or
+                // two. That is acceptable for a few seconds and not
+                // acceptable permanently, so it retires itself once it has
+                // been read and does not come back.
                 Rectangle {
+                    id: hintBox
+                    property bool retired: false
+
                     anchors.right: parent.right
                     anchors.bottom: parent.bottom
                     anchors.margins: Style.space2
-                    // Out of the way as soon as it would compete with the
-                    // tooltip or with a running build.
-                    visible: !page.empty && map.zoom < 1.05
-                             && map.hoveredPath === ""
-                             && !AppContext.runner.running
                     width: hint.implicitWidth + 2 * Style.space1
                     height: hint.implicitHeight + Style.space1
                     radius: Style.radiusS
                     color: Style.overlay
+                    visible: opacity > 0.01
+                    opacity: (!page.empty && !hintBox.retired
+                              && map.zoom < 1.05
+                              && map.hoveredPath === ""
+                              && !AppContext.runner.running) ? 1 : 0
+                    Behavior on opacity {
+                        NumberAnimation { duration: Style.durSlow }
+                    }
+
+                    Timer {
+                        running: hintBox.opacity > 0.9
+                        interval: 6000
+                        onTriggered: hintBox.retired = true
+                    }
+
                     TextBW {
                         id: hint
                         anchors.centerIn: parent

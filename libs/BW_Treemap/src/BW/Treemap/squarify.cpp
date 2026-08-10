@@ -151,15 +151,26 @@ void layoutNode(
         < options.minRecurseSize;
     const bool asCell = node.isLeaf() || depthExhausted || tooSmall;
 
-    out.push_back({ &node, bounds, depth, asCell });
     if (asCell) {
+        out.push_back({ &node, bounds, depth, true, 0.0 });
         return;
     }
 
+    // All or nothing. A label needs its full height to render without being
+    // clipped through the glyphs, so either the box can spare that much (and
+    // no more than a quarter of itself, or a short directory would be mostly
+    // chrome) or it gets no band at all and its children take the whole box.
+    //
+    // Scaling the band down instead produced two bugs at once: a renderer
+    // drawing a full-height label into a part-height reservation put the name
+    // on top of the children, and clamping the label to the reservation left
+    // an empty strip that looked like a rendering fault.
+    const double header = bounds.h * 0.25 >= options.headerHeight
+        ? options.headerHeight
+        : 0.0;
+    out.push_back({ &node, bounds, depth, false, header });
+
     Rect inner = bounds;
-    const double header = std::min(
-        options.headerHeight,
-        std::max(0.0, inner.h * 0.25));
     inner.y += header;
     inner.h -= header;
 
@@ -207,10 +218,14 @@ void layout(
     }
     out.reserve(static_cast<std::size_t>(root.leafCount) * 2 + 16);
 
-    // The root itself is the canvas; its children get the whole rectangle so
-    // no pixels are wasted on a frame nobody needs.
+    // The root is the canvas, not a drawn directory: it gets no border and no
+    // label, so its children take the whole rectangle rather than losing a
+    // band to a frame nobody needs. headerHeight stays 0 to say so, which is
+    // what stops a renderer from labelling it - drilling into a directory
+    // makes that directory the root, and labelling it here would put its name
+    // on top of its first child's.
     const auto children = orderedChildren(root, options.order);
-    out.push_back({ &root, bounds, 0, false });
+    out.push_back({ &root, bounds, 0, false, 0.0 });
     squarify(children, bounds, options, 1, out);
 }
 

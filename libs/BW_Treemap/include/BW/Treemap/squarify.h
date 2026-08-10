@@ -53,8 +53,9 @@ struct LayoutOptions
     Order order { Order::ByName };
     /// Inset applied inside a directory before laying out its children.
     double padding { 2.0 };
-    /// Band reserved at the top of a directory for its label. Dropped
-    /// automatically when the box is too small to be worth labelling.
+    /// Band reserved at the top of a directory for its label. Reserved in
+    /// full or not at all, and never more than a quarter of the box; see
+    /// LayoutItem::headerHeight.
     double headerHeight { 14.0 };
     /// Directories smaller than this are drawn as a single block instead of
     /// being recursed into; this is what keeps several thousand files fast.
@@ -74,6 +75,14 @@ struct LayoutItem
     /// True when the node is drawn as a filled cell (a leaf, or a directory
     /// that was too small to recurse into).
     bool isCell { false };
+    /// Height reserved at the top of `rect` for this directory's label, before
+    /// the children were laid out. Either the full LayoutOptions::headerHeight
+    /// or zero, never something in between: a partial band cannot hold a label
+    /// without clipping it, and reserving one anyway leaves an empty strip.
+    ///
+    /// Zero for cells, for the canvas at depth 0, and for any directory too
+    /// short to spare the space. A renderer must not label those.
+    double headerHeight { 0.0 };
 };
 
 /// Lays `root` out inside `bounds`. Output is in draw order: a directory

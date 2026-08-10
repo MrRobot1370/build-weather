@@ -86,24 +86,47 @@ function Save-Shot([string]$file) {
     "shot: $file"
 }
 
-$cr = New-Object UI+RECT
-[UI]::GetClientRect($hwnd, [ref]$cr) | Out-Null
-"client area: $($cr.Right) x $($cr.Bottom)"
+$wr = New-Object UI+RECT
+[UI]::GetWindowRect($hwnd, [ref]$wr) | Out-Null
+$script:winW = $wr.Right - $wr.Left
+$script:winH = $wr.Bottom - $wr.Top
+"window: ${script:winW} x ${script:winH}"
+
+# A step may give `fx`/`fy` as fractions of the window instead of `x`/`y` in
+# pixels. The app window is not always the same size (it clamps to its minimum
+# on a small display), so pixel coordinates read off one capture do not
+# survive a resolution change; fractions do.
+function Resolve-Point($step) {
+    $x = if ($null -ne $step.fx) { [int]([double]$step.fx * $script:winW) } else { [int]$step.x }
+    $y = if ($null -ne $step.fy) { [int]([double]$step.fy * $script:winH) } else { [int]$step.y }
+    return @($x, $y)
+}
 
 foreach ($step in $Script) {
     switch ($step.a) {
         'wait'   { Start-Sleep -Milliseconds ([int]($step.s * 1000)) }
         # Two positions, because a single SetCursorPos can land without the
         # target ever seeing a move, and a hover tooltip needs the move.
-        'move'   { Move-To ($step.x - 6) ($step.y - 6)
-                   Move-To $step.x $step.y
+        'move'   { $p = Resolve-Point $step
+                   Move-To ($p[0] - 6) ($p[1] - 6)
+                   Move-To $p[0] $p[1]
                    Start-Sleep -Milliseconds 900 }
-        'click'  { Move-To $step.x $step.y
+        'click'  { $p = Resolve-Point $step; Move-To $p[0] $p[1]
                    [UI]::mouse_event([UI]::LEFTDOWN, 0,0,0,[IntPtr]::Zero)
                    Start-Sleep -Milliseconds 60
                    [UI]::mouse_event([UI]::LEFTUP, 0,0,0,[IntPtr]::Zero)
                    Start-Sleep -Milliseconds 350 }
-        'scroll' { Move-To $step.x $step.y
+        # Inside the double-click interval, and without moving between the two
+        # presses, or Qt reads it as two separate clicks.
+        'dblclick' { $p = Resolve-Point $step; Move-To $p[0] $p[1]
+                     for ($i=0; $i -lt 2; $i++) {
+                         [UI]::mouse_event([UI]::LEFTDOWN, 0,0,0,[IntPtr]::Zero)
+                         Start-Sleep -Milliseconds 40
+                         [UI]::mouse_event([UI]::LEFTUP, 0,0,0,[IntPtr]::Zero)
+                         Start-Sleep -Milliseconds 40
+                     }
+                     Start-Sleep -Milliseconds 500 }
+        'scroll' { $p = Resolve-Point $step; Move-To $p[0] $p[1]
                    $ticks = [math]::Abs($step.d); $dir = if ($step.d -ge 0) { 120 } else { -120 }
                    for ($i=0; $i -lt $ticks; $i++) {
                        [UI]::mouse_event([UI]::WHEEL, 0,0,$dir,[IntPtr]::Zero)

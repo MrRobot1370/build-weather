@@ -4,6 +4,7 @@
 
 #include <QElapsedTimer>
 #include <QGuiApplication>
+#include <QFontMetricsF>
 #include <QPainter>
 #include <QQuickWindow>
 #include <QSGGeometryNode>
@@ -21,8 +22,12 @@ namespace {
 
 constexpr int kSettleMs = 400; ///< matches Style.durSettle
 constexpr int kPulsePeriodMs = 900;
-constexpr double kMinLabelWidth = 46.0;
-constexpr double kMinLabelHeight = 13.0;
+/// Width thresholds only. The *height* a label needs is measured from the
+/// font rather than guessed at: a constant is how labels ended up clipped
+/// through the middle of the glyphs on short boxes.
+constexpr double kMinDirectoryLabelWidth = 46.0;
+constexpr double kMinLeafLabelWidth = 34.0;
+constexpr double kRoomyLeafLabelWidth = 58.0;
 
 auto nowMs() -> qint64
 {
@@ -560,6 +565,8 @@ void TreemapItem::renderLabels(qint64 now)
     painter.setRenderHint(QPainter::TextAntialiasing, true);
 
     const MapPalette palette = mapPalette(m_darkTheme);
+    const double viewW = width();
+    const double viewH = height();
 
     QFont directoryFont = QGuiApplication::font();
     directoryFont.setPixelSize(10);
@@ -574,51 +581,85 @@ void TreemapItem::renderLabels(qint64 now)
     QFont smallLeafFont = QGuiApplication::font();
     smallLeafFont.setPixelSize(9);
 
+    // The height each font needs for an unclipped line, including leading.
+    const QFontMetricsF directoryMetrics { directoryFont };
+    const QFontMetricsF leafMetrics { leafFont };
+    const QFontMetricsF smallLeafMetrics { smallLeafFont };
+    const double directoryLine = directoryMetrics.height();
+    const double leafLine = leafMetrics.height();
+    const double smallLeafLine = smallLeafMetrics.height();
+
     for (const auto &item : m_layout) {
         const Treemap::Rect &rect = item.rect;
-        if (!onScreen(rect, width(), height())) {
+        if (!onScreen(rect, viewW, viewH)) {
             continue;
         }
 
         if (!item.isCell) {
-            if (rect.w < kMinLabelWidth || rect.h < kMinLabelHeight) {
+            // Two independent reasons to leave a directory unlabelled, and
+            // both were bugs before they were checks: the band has to fit
+            // inside the height the layout actually reserved (which is
+            // clamped on a short box, so a fixed band drew the name over the
+            // children), and it has to be at least one line tall (or the
+            // glyphs are cut through the middle).
+            const double band = item.headerHeight - 2.0;
+            if (rect.w < kMinDirectoryLabelWidth || band < directoryLine) {
                 continue;
             }
-            // Directory header band.
             painter.setFont(directoryFont);
             painter.setPen(palette.directoryLabel);
-            const QRectF band {
+            const QRectF box {
                 rect.x + 4.0,
                 rect.y + 1.0,
                 rect.w - 8.0,
-                12.0
+                band
             };
-            const QString text = painter.fontMetrics().elidedText(
+            const QString text = directoryMetrics.elidedText(
                 QString::fromStdString(item.node->name),
                 Qt::ElideLeft,
-                static_cast<int>(band.width()));
-            painter.drawText(band, Qt::AlignVCenter | Qt::AlignLeft, text);
+                box.width());
+            painter.drawText(box, Qt::AlignVCenter | Qt::AlignLeft, text);
             continue;
         }
 
-        const bool roomy = rect.w >= 58.0 && rect.h >= 16.0;
-        const bool tight = rect.w >= 34.0 && rect.h >= 11.0;
+        // Zoomed in, a cell can be larger than the viewport, and its top left
+        // corner is then off screen along with the label drawn there - so the
+        // one cell filling your view is the one you cannot identify. Label the
+        // visible part of the cell instead.
+        //
+        // Only leaves do this. A directory's band is structural, sitting in
+        // space reserved from its own children, and sliding it down the screen
+        // would put it on top of them; the breadcrumb names the directory you
+        // are inside.
+        const double vx0 = std::max(rect.x, 0.0);
+        const double vy0 = std::max(rect.y, 0.0);
+        const double vx1 = std::min(rect.x + rect.w, viewW);
+        const double vy1 = std::min(rect.y + rect.h, viewH);
+        const double visibleW = vx1 - vx0;
+        const double visibleH = vy1 - vy0;
+
+        const double inner = visibleH - 4.0;
+        const bool roomy
+            = visibleW >= kRoomyLeafLabelWidth && inner >= leafLine;
+        const bool tight
+            = visibleW >= kMinLeafLabelWidth && inner >= smallLeafLine;
         if (!roomy && !tight) {
             continue;
         }
+        const QFontMetricsF &metrics = roomy ? leafMetrics : smallLeafMetrics;
         painter.setFont(roomy ? leafFont : smallLeafFont);
         // Contrast against the cell, not against the theme; see labelInkFor.
         painter.setPen(labelInkFor(colorFor(item, now)));
         const QRectF box {
-            rect.x + 3.0,
-            rect.y + 2.0,
-            rect.w - 6.0,
-            rect.h - 4.0
+            vx0 + 3.0,
+            vy0 + 2.0,
+            visibleW - 6.0,
+            inner
         };
-        const QString text = painter.fontMetrics().elidedText(
+        const QString text = metrics.elidedText(
             QString::fromStdString(item.node->name),
             Qt::ElideMiddle,
-            static_cast<int>(box.width()));
+            box.width());
         painter.drawText(box, Qt::AlignTop | Qt::AlignLeft, text);
     }
 }

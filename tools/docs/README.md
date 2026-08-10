@@ -59,8 +59,14 @@ them, and they have to be re-read rather than scaled.
 
 ## A note on the checked-in figures
 
-The captures in `docs/images/` were taken on a 2272x1466 window. A couple of
-small boxes in `01-overview.png` and `02-tooltip.png` show collapsed
-directories in neutral grey, which predates the change that colours them by
-their mean duration. It is about half a percent of the pixels in those two
-figures. Re-run the capture on a full-resolution display to refresh them.
+The captures in `docs/images/` were taken on a 2272x1466 window and are
+slightly behind two later changes to the map:
+
+- a couple of small boxes in `01-overview.png` and `02-tooltip.png` show
+  collapsed directories in neutral grey, from before they were coloured by
+  their mean duration (about half a percent of the pixels in those two);
+- a few short directories carry a label that the current build would leave
+  unlabelled, because a band is now reserved in full or not at all.
+
+Neither changes what the figures illustrate. Re-run the capture on a
+full-resolution display to refresh them.

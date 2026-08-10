@@ -2,6 +2,7 @@
 #include "BW/Treemap/tree.h"
 
 #include <QElapsedTimer>
+#include <QHash>
 #include <QTest>
 
 #include <algorithm>
@@ -54,6 +55,10 @@ private slots:
     void collapsesSingleChildDirectoryChains();
     void keepsRootIntact();
     void layoutFillsBoundsWithoutOverlap();
+    void childrenStayInsideTheParentContentArea();
+    void headerIsReservedInFullOrNotAtAll();
+    void theCanvasReservesNoHeader();
+    void everyRectStaysInsideTheBounds();
     void layoutIsProportionalToValue();
     void layoutIsStableWhenOnlyValuesChange();
     void valueOrderingIsAvailableButNotDefault();
@@ -162,6 +167,185 @@ void TreemapTests::layoutFillsBoundsWithoutOverlap()
                     QString::fromStdString(
                         cells[i]->node->path + " overlaps "
                         + cells[j]->node->path)));
+        }
+    }
+}
+
+void TreemapTests::childrenStayInsideTheParentContentArea()
+{
+    // The invariant behind "a directory label must not sit on its children":
+    // every child rect lies inside the parent minus its reserved header and
+    // padding. If this holds and a renderer keeps the label inside
+    // headerHeight, an overlap is impossible.
+    TreeBuilder builder;
+    builder.setCollapseSingleChildDirectories(false);
+    for (int i = 0; i < 60; ++i) {
+        builder.add(
+            "root/dir" + std::to_string(i % 6) + "/sub"
+                + std::to_string(i % 3) + "/file" + std::to_string(i) + ".cpp",
+            5.0 + (i % 23),
+            i);
+    }
+
+    LayoutOptions options;
+    options.padding = 2.0;
+    options.headerHeight = 14.0;
+    const Node root = builder.build();
+    const auto items = layout(root, { 0.0, 0.0, 1200.0, 800.0 }, options);
+    QVERIFY(!items.empty());
+
+    // Map every node path to its laid-out item so parents can be found.
+    QHash<QString, const LayoutItem *> byPath;
+    for (const auto &item : items) {
+        byPath.insert(QString::fromStdString(item.node->path), &item);
+    }
+
+    int checked = 0;
+    for (const auto &item : items) {
+        const QString path = QString::fromStdString(item.node->path);
+        const int slash = path.lastIndexOf('/');
+        if (slash <= 0) {
+            continue;
+        }
+        const LayoutItem *parent = byPath.value(path.left(slash), nullptr);
+        if (parent == nullptr || parent->isCell) {
+            continue;
+        }
+
+        const double top = parent->rect.y + parent->headerHeight;
+        constexpr double kSlack = 1e-6;
+        QVERIFY2(
+            item.rect.y >= top - kSlack,
+            qPrintable(QString("%1 starts at y=%2, above its parent's "
+                               "content top %3")
+                           .arg(path)
+                           .arg(item.rect.y)
+                           .arg(top)));
+        QVERIFY(item.rect.x >= parent->rect.x - kSlack);
+        QVERIFY(item.rect.x + item.rect.w
+            <= parent->rect.x + parent->rect.w + kSlack);
+        QVERIFY(item.rect.y + item.rect.h
+            <= parent->rect.y + parent->rect.h + kSlack);
+        ++checked;
+    }
+    QVERIFY2(checked > 20, "the test tree did not produce nested directories");
+}
+
+void TreemapTests::headerIsReservedInFullOrNotAtAll()
+{
+    // headerHeight is clamped to a quarter of the box, so a short directory
+    // reports less than was asked for. A renderer that assumed it got the
+    // full 14 px drew the label over the contents.
+    // Many small directories on a modest canvas, so each one gets a box far
+    // shorter than four times the requested header and the clamp has to bite.
+    TreeBuilder builder;
+    builder.setCollapseSingleChildDirectories(false);
+    for (int i = 0; i < 400; ++i) {
+        builder.add(
+            "root/d" + std::to_string(i / 2) + "/f" + std::to_string(i)
+                + ".cpp",
+            1.0 + (i % 11),
+            i);
+    }
+
+    LayoutOptions options;
+    options.headerHeight = 14.0;
+    options.minRecurseSize = 10.0; // let short directories recurse
+    const Node root = builder.build();
+    const auto items = layout(root, { 0.0, 0.0, 900.0, 600.0 }, options);
+
+    bool sawDropped = false;
+    bool sawReserved = false;
+    for (const auto &item : items) {
+        if (item.isCell) {
+            QCOMPARE(item.headerHeight, 0.0);
+            continue;
+        }
+        // The whole point: a band is reserved in full or not at all. Anything
+        // in between cannot hold a label without clipping it.
+        QVERIFY2(
+            item.headerHeight == 0.0
+                || qFuzzyCompare(item.headerHeight, options.headerHeight),
+            qPrintable(QString("partial band of %1 px reserved")
+                           .arg(item.headerHeight)));
+        // And a band never eats more than a quarter of its box.
+        if (item.headerHeight > 0.0) {
+            QVERIFY(item.headerHeight <= item.rect.h * 0.25 + 1e-9);
+            sawReserved = true;
+        }
+        else if (item.depth > 0) {
+            sawDropped = true;
+        }
+    }
+    QVERIFY2(sawDropped, "no directory was short enough to drop its header");
+    QVERIFY2(sawReserved, "no directory was tall enough to keep its header");
+}
+
+void TreemapTests::theCanvasReservesNoHeader()
+{
+    // Drilling into a directory makes it the layout root. The root is the
+    // canvas: no border, no label, and therefore no reserved band, so its
+    // children get the whole rectangle. Reporting a header here is what put
+    // the focused directory's name on top of its first child's.
+    TreeBuilder builder;
+    builder.add("libs/a/x.cpp", 10.0, 0);
+    builder.add("libs/b/y.cpp", 20.0, 1);
+    const Node root = builder.build();
+
+    const Rect bounds { 0.0, 0.0, 600.0, 400.0 };
+    const auto items = layout(root, bounds, {});
+    QVERIFY(!items.empty());
+
+    const LayoutItem &canvas = items.front();
+    QCOMPARE(canvas.depth, 0);
+    QCOMPARE(canvas.headerHeight, 0.0);
+
+    // With no band taken, the children together still cover the full height.
+    double top = bounds.h;
+    for (const auto &item : items) {
+        if (item.depth == 1) {
+            top = std::min(top, item.rect.y);
+        }
+    }
+    QCOMPARE(top, bounds.y);
+}
+
+void TreemapTests::everyRectStaysInsideTheBounds()
+{
+    // Nothing may be laid out outside the canvas, at any zoom or pan. The
+    // zoomed view passes a rect offset by the pan, so negative origins and
+    // rects far larger than the view are the normal case, not an edge case.
+    TreeBuilder builder;
+    for (int i = 0; i < 200; ++i) {
+        builder.add(
+            "libs/l" + std::to_string(i % 9) + "/src/f" + std::to_string(i)
+                + ".cpp",
+            1.0 + (i % 37),
+            i);
+    }
+    const Node root = builder.build();
+
+    const QList<Rect> viewports {
+        { 0.0, 0.0, 1200.0, 800.0 },
+        { -600.0, -400.0, 2400.0, 1600.0 },   // zoom 2, panned to the middle
+        { -7200.0, -4800.0, 9600.0, 6400.0 }, // zoom 8, panned to the corner
+        { 0.0, 0.0, 40.0, 4000.0 },           // pathological aspect ratio
+    };
+
+    for (const Rect &view : viewports) {
+        const auto items = layout(root, view, {});
+        QVERIFY(!items.empty());
+        constexpr double kSlack = 1e-6;
+        for (const auto &item : items) {
+            QVERIFY(item.rect.w >= -kSlack);
+            QVERIFY(item.rect.h >= -kSlack);
+            QVERIFY2(
+                item.rect.x >= view.x - kSlack
+                    && item.rect.y >= view.y - kSlack
+                    && item.rect.x + item.rect.w <= view.x + view.w + kSlack
+                    && item.rect.y + item.rect.h <= view.y + view.h + kSlack,
+                qPrintable(QString("%1 escaped the canvas")
+                               .arg(QString::fromStdString(item.node->path))));
         }
     }
 }
