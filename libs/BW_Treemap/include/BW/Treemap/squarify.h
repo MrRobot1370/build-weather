@@ -54,9 +54,20 @@ struct LayoutOptions
     /// Inset applied inside a directory before laying out its children.
     double padding { 2.0 };
     /// Band reserved at the top of a directory for its label. Reserved in
-    /// full or not at all, and never more than a quarter of the box; see
-    /// LayoutItem::headerHeight.
+    /// full or not at all; see LayoutItem::headerHeight. A caller that draws
+    /// text in the band must pass the height that text actually needs, not a
+    /// round number, or the two disagree and the label is either clipped or
+    /// drawn over the children.
     double headerHeight { 14.0 };
+    /// A band is only reserved on a box at least this many times as tall as
+    /// the band itself. Below it the directory goes unlabelled and its
+    /// children take the whole box: a band on a short box is mostly chrome,
+    /// and leaves too little room for the contents to read as contents.
+    double minHeaderBoxRatio { 2.5 };
+    /// And only on a box wide enough for a name to be worth eliding into.
+    /// Narrower, the reservation buys nothing and shows up as an empty strip
+    /// above the contents, which reads as a rendering fault.
+    double minHeaderWidth { 46.0 };
     /// Directories smaller than this are drawn as a single block instead of
     /// being recursed into; this is what keeps several thousand files fast.
     double minRecurseSize { 24.0 };
@@ -81,7 +92,8 @@ struct LayoutItem
     /// without clipping it, and reserving one anyway leaves an empty strip.
     ///
     /// Zero for cells, for the canvas at depth 0, and for any directory too
-    /// short to spare the space. A renderer must not label those.
+    /// short to spare the space. A renderer must label a directory if and only
+    /// if this is non-zero, and must keep the label inside it.
     double headerHeight { 0.0 };
 };
 

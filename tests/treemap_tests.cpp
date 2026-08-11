@@ -57,6 +57,7 @@ private slots:
     void layoutFillsBoundsWithoutOverlap();
     void childrenStayInsideTheParentContentArea();
     void headerIsReservedInFullOrNotAtAll();
+    void mostDirectoriesKeepTheirLabelBand();
     void theCanvasReservesNoHeader();
     void everyRectStaysInsideTheBounds();
     void layoutIsProportionalToValue();
@@ -233,11 +234,11 @@ void TreemapTests::childrenStayInsideTheParentContentArea()
 
 void TreemapTests::headerIsReservedInFullOrNotAtAll()
 {
-    // headerHeight is clamped to a quarter of the box, so a short directory
-    // reports less than was asked for. A renderer that assumed it got the
-    // full 14 px drew the label over the contents.
-    // Many small directories on a modest canvas, so each one gets a box far
-    // shorter than four times the requested header and the clamp has to bite.
+    // A short directory drops its band rather than reserving a sliver of one.
+    // A renderer that assumed it always got the full band drew the label over
+    // the contents; one that reserved a sliver could only clip the label.
+    // Many small directories on a modest canvas, so plenty of boxes fall below
+    // the ratio and the rule has to bite in both directions.
     TreeBuilder builder;
     builder.setCollapseSingleChildDirectories(false);
     for (int i = 0; i < 400; ++i) {
@@ -268,9 +269,14 @@ void TreemapTests::headerIsReservedInFullOrNotAtAll()
                 || qFuzzyCompare(item.headerHeight, options.headerHeight),
             qPrintable(QString("partial band of %1 px reserved")
                            .arg(item.headerHeight)));
-        // And a band never eats more than a quarter of its box.
+        // And a band is never taken from a box too short to spare it, nor
+        // from one too narrow to draw a name in - a reservation nothing can
+        // be drawn into is just an empty strip above the contents.
         if (item.headerHeight > 0.0) {
-            QVERIFY(item.headerHeight <= item.rect.h * 0.25 + 1e-9);
+            QVERIFY(
+                item.rect.h
+                >= options.headerHeight * options.minHeaderBoxRatio - 1e-9);
+            QVERIFY(item.rect.w >= options.minHeaderWidth - 1e-9);
             sawReserved = true;
         }
         else if (item.depth > 0) {
@@ -279,6 +285,46 @@ void TreemapTests::headerIsReservedInFullOrNotAtAll()
     }
     QVERIFY2(sawDropped, "no directory was short enough to drop its header");
     QVERIFY2(sawReserved, "no directory was tall enough to keep its header");
+}
+
+void TreemapTests::mostDirectoriesKeepTheirLabelBand()
+{
+    // The other half of the rule above, and the one that actually shipped
+    // broken: tightened far enough, "drop the band on a short box" drops it on
+    // every box, and the map loses every directory name. On a normal tree at a
+    // normal window size the great majority of directories must keep theirs.
+    TreeBuilder builder;
+    for (int i = 0; i < 900; ++i) {
+        builder.add(
+            "src/mod" + std::to_string(i % 12) + "/part"
+                + std::to_string(i % 40) + "/f" + std::to_string(i) + ".cpp",
+            20.0 + (i % 400),
+            i);
+    }
+
+    LayoutOptions options;
+    options.headerHeight = 17.0; // what a 10 px DemiBold line measures at
+    options.minRecurseSize = 26.0;
+    const Node root = builder.build();
+    const auto items = layout(root, { 0.0, 0.0, 1600.0, 1000.0 }, options);
+
+    int directories = 0;
+    int labelled = 0;
+    for (const auto &item : items) {
+        if (item.isCell || item.depth == 0) {
+            continue;
+        }
+        ++directories;
+        if (item.headerHeight > 0.0) {
+            ++labelled;
+        }
+    }
+    QVERIFY(directories > 10);
+    QVERIFY2(
+        labelled * 4 >= directories * 3,
+        qPrintable(QString("only %1 of %2 directories kept a label band")
+                       .arg(labelled)
+                       .arg(directories)));
 }
 
 void TreemapTests::theCanvasReservesNoHeader()

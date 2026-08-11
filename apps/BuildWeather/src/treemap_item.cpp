@@ -28,6 +28,32 @@ constexpr int kPulsePeriodMs = 900;
 constexpr double kMinDirectoryLabelWidth = 46.0;
 constexpr double kMinLeafLabelWidth = 34.0;
 constexpr double kRoomyLeafLabelWidth = 58.0;
+/// Breathing room above and below a directory name inside its band.
+constexpr double kBandPadding = 3.0;
+
+/// The font a directory name is drawn in, and the band height that font
+/// needs. The layout reserves the band and the painter draws into it, so both
+/// have to ask the same question of the same font. Asking two different ones -
+/// a round 14 px reserved, a measured ~14 px line wanted, 2 px of margin taken
+/// off in between - is what silently dropped every directory label.
+auto directoryFont() -> QFont
+{
+    QFont font = QGuiApplication::font();
+    font.setPixelSize(10);
+    font.setWeight(QFont::DemiBold);
+    return font;
+}
+
+auto directoryBandHeight() -> double
+{
+    // Measured once. The application font does not change while the app runs,
+    // and this is on the relayout path.
+    static const double band = [] {
+        const QFontMetricsF metrics { directoryFont() };
+        return std::ceil(metrics.height()) + kBandPadding;
+    }();
+    return band;
+}
 
 auto nowMs() -> qint64
 {
@@ -427,7 +453,12 @@ void TreemapItem::relayout()
     options.order = m_stableOrder ? Treemap::Order::ByName
                                   : Treemap::Order::ByValueDesc;
     options.padding = 2.0;
-    options.headerHeight = m_showLabels ? 14.0 : 3.0;
+    // With labels off the band is only there to make the nesting visible, so
+    // it shrinks to a hairline and stops caring how wide the box is: nothing
+    // has to fit in it. With labels on it must not be reserved where no name
+    // could be drawn, or it shows up as an empty strip above the contents.
+    options.headerHeight = m_showLabels ? directoryBandHeight() : 3.0;
+    options.minHeaderWidth = m_showLabels ? kMinDirectoryLabelWidth : 0.0;
     options.minRecurseSize = 26.0;
 
     QElapsedTimer timer;
@@ -568,9 +599,7 @@ void TreemapItem::renderLabels(qint64 now)
     const double viewW = width();
     const double viewH = height();
 
-    QFont directoryFont = QGuiApplication::font();
-    directoryFont.setPixelSize(10);
-    directoryFont.setWeight(QFont::DemiBold);
+    const QFont dirFont = directoryFont();
 
     // Leaf labels get two sizes. A file name is the thing users are hunting
     // for, so a cramped cell gets a smaller font rather than no name at all;
@@ -582,10 +611,9 @@ void TreemapItem::renderLabels(qint64 now)
     smallLeafFont.setPixelSize(9);
 
     // The height each font needs for an unclipped line, including leading.
-    const QFontMetricsF directoryMetrics { directoryFont };
+    const QFontMetricsF directoryMetrics { dirFont };
     const QFontMetricsF leafMetrics { leafFont };
     const QFontMetricsF smallLeafMetrics { smallLeafFont };
-    const double directoryLine = directoryMetrics.height();
     const double leafLine = leafMetrics.height();
     const double smallLeafLine = smallLeafMetrics.height();
 
@@ -596,29 +624,35 @@ void TreemapItem::renderLabels(qint64 now)
         }
 
         if (!item.isCell) {
-            // Two independent reasons to leave a directory unlabelled, and
-            // both were bugs before they were checks: the band has to fit
-            // inside the height the layout actually reserved (which is
-            // clamped on a short box, so a fixed band drew the name over the
-            // children), and it has to be at least one line tall (or the
-            // glyphs are cut through the middle).
-            const double band = item.headerHeight - 2.0;
-            if (rect.w < kMinDirectoryLabelWidth || band < directoryLine) {
+            // Which directories are labelled is the layout's decision, made
+            // by reserving a band or not, and it reserves exactly the height
+            // this font needs. The painter's only job is to stay inside it -
+            // it must not second-guess the height, or the two disagree again.
+            if (item.headerHeight <= 0.0) {
                 continue;
             }
-            painter.setFont(directoryFont);
+            // Panned or zoomed, a directory can start off the left edge and
+            // take its name with it, so the box filling your view is the one
+            // you cannot identify. The band spans the directory's full width
+            // and nothing else is drawn in it, so sliding the text along it
+            // is free. Vertically it must not move: below the band are the
+            // children, and that is the overlap this whole seam is about.
+            const double bx0 = std::max(rect.x, 0.0) + 4.0;
+            const double bx1 = std::min(rect.x + rect.w, viewW) - 4.0;
+            if (bx1 - bx0 < kMinDirectoryLabelWidth) {
+                continue;
+            }
+            painter.setFont(dirFont);
             painter.setPen(palette.directoryLabel);
-            const QRectF box {
-                rect.x + 4.0,
-                rect.y + 1.0,
-                rect.w - 8.0,
-                band
-            };
+            const QRectF box { bx0, rect.y, bx1 - bx0, item.headerHeight };
             const QString text = directoryMetrics.elidedText(
                 QString::fromStdString(item.node->name),
                 Qt::ElideLeft,
                 box.width());
-            painter.drawText(box, Qt::AlignVCenter | Qt::AlignLeft, text);
+            painter.drawText(
+                box,
+                Qt::AlignVCenter | Qt::AlignLeft | Qt::TextSingleLine,
+                text);
             continue;
         }
 
@@ -660,7 +694,10 @@ void TreemapItem::renderLabels(qint64 now)
             QString::fromStdString(item.node->name),
             Qt::ElideMiddle,
             box.width());
-        painter.drawText(box, Qt::AlignTop | Qt::AlignLeft, text);
+        painter.drawText(
+            box,
+            Qt::AlignTop | Qt::AlignLeft | Qt::TextSingleLine,
+            text);
     }
 }
 

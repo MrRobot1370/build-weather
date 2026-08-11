@@ -158,16 +158,17 @@ void layoutNode(
 
     // All or nothing. A label needs its full height to render without being
     // clipped through the glyphs, so either the box can spare that much (and
-    // no more than a quarter of itself, or a short directory would be mostly
-    // chrome) or it gets no band at all and its children take the whole box.
+    // still have room left to read as a container) or it gets no band at all
+    // and its children take the whole box.
     //
     // Scaling the band down instead produced two bugs at once: a renderer
     // drawing a full-height label into a part-height reservation put the name
     // on top of the children, and clamping the label to the reservation left
     // an empty strip that looked like a rendering fault.
-    const double header = bounds.h * 0.25 >= options.headerHeight
-        ? options.headerHeight
-        : 0.0;
+    const bool roomForBand
+        = bounds.h >= options.headerHeight * options.minHeaderBoxRatio
+        && bounds.w >= options.minHeaderWidth;
+    const double header = roomForBand ? options.headerHeight : 0.0;
     out.push_back({ &node, bounds, depth, false, header });
 
     Rect inner = bounds;

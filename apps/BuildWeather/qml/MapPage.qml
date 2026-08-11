@@ -240,9 +240,14 @@ Item {
                     height: tipColumn.implicitHeight + 2 * Style.space1
                     x: Math.max(4, Math.min(parent.width - width - 4,
                                             map.hoveredAnchor.x - width / 2))
-                    y: map.hoveredAnchor.y > height + 8
-                       ? map.hoveredAnchor.y - height - 6
-                       : map.hoveredAnchor.y + 20
+                    // Above the cell by preference, below it when there is no
+                    // room above - and clamped either way, because a cell near
+                    // the bottom edge has no room on either side and the
+                    // tooltip would otherwise hang off the map.
+                    y: Math.max(4, Math.min(parent.height - height - 4,
+                                            map.hoveredAnchor.y > height + 8
+                                            ? map.hoveredAnchor.y - height - 6
+                                            : map.hoveredAnchor.y + 20))
                     opacity: 0.97
 
                     ColumnLayout {
