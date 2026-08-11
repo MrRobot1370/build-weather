@@ -37,9 +37,8 @@ auto resolveSource(
     if (guess.empty()) {
         return {};
     }
-    // The guess strips the CMakeFiles infix out of a build-relative object
-    // path, and what is left mirrors the *source* tree, so it is resolved
-    // against the source root.
+    // the guess strips the CMakeFiles infix, and what is left mirrors the
+    // source tree, so it resolves against the source root
     return Core::joinPath(opts.classifier.sourceRoot(), guess);
 }
 
@@ -63,9 +62,8 @@ auto BuildSnapshot::fromRecords(
     snapshot.m_targets.reserve(records.size());
 
     // An edge with several output names is logged once per name, so the same
-    // file appears twice: `qml/a.qml` and `<build>/qml/a.qml`. They are only
-    // the same string after normalization against the build root, which is
-    // why the de-duplication happens here and not in the log parser.
+    // file appears as `qml/a.qml` and `<build>/qml/a.qml`. Those are only the
+    // same string after normalization, so this cannot live in the parser.
     std::unordered_map<std::string, std::size_t> seenOutputs;
     seenOutputs.reserve(records.size());
 
@@ -76,8 +74,7 @@ auto BuildSnapshot::fromRecords(
                 : Core::joinPath(opts.classifier.buildRoot(), record.output));
         if (const auto it = seenOutputs.find(outputKey);
             it != seenOutputs.end()) {
-            // Same edge under another name: keep the longer measurement
-            // rather than counting the work twice.
+            // same edge under another name: keep the longer measurement
             TargetInfo &existing = snapshot.m_targets[it->second];
             if (record.durationMs() > existing.durationMs) {
                 existing.startMs = record.startMs;
@@ -116,10 +113,9 @@ auto BuildSnapshot::fromRecords(
 
 void BuildSnapshot::finalize()
 {
-    // Several steps can land on one file: a generated source is written by
-    // one edge and compiled by another, and both belong at that leaf. The
-    // treemap needs exactly one leaf per path, and summing is also the
-    // honest answer to "what does this file cost me", so they merge.
+    // Several steps can land on one file, a generated source being written
+    // and then compiled. The treemap needs exactly one leaf per path, so they
+    // merge and their durations sum.
     {
         std::unordered_map<std::string, std::size_t> byTreePath;
         byTreePath.reserve(m_targets.size());
@@ -136,9 +132,7 @@ void BuildSnapshot::finalize()
             }
 
             TargetInfo &existing = merged[it->second];
-            // The dominant step decides how the leaf is labelled and
-            // coloured; a 2 second compile is what the file is, not the
-            // 30 ms moc run that produced it.
+            // the dominant step decides the label and colour
             if (target.durationMs > existing.durationMs) {
                 existing.kind = target.kind;
                 existing.output = target.output;
@@ -154,7 +148,7 @@ void BuildSnapshot::finalize()
         m_targets = std::move(merged);
     }
 
-    // Deterministic order first, so rank ties break the same way every run.
+    // deterministic order first, so rank ties break the same way every run
     std::sort(
         m_targets.begin(),
         m_targets.end(),
@@ -207,7 +201,7 @@ void BuildSnapshot::finalize()
         durations.end());
     m_stats.medianMs = durations[mid];
 
-    // Event stream, sorted so a scrub can binary-search it.
+    // sorted so a scrub can binary-search it
     m_timeline.clear();
     m_timeline.reserve(m_targets.size() * 2);
     for (std::size_t i = 0; i < m_targets.size(); ++i) {
@@ -225,8 +219,8 @@ void BuildSnapshot::finalize()
             if (a.timeMs != b.timeMs) {
                 return a.timeMs < b.timeMs;
             }
-            // Finish before start at the same millisecond, so parallelism
-            // never reads high because of a handover.
+            // finish before start at the same millisecond, so a handover
+            // never reads as extra parallelism
             if (a.type != b.type) {
                 return a.type == BuildEvent::Type::Finish;
             }

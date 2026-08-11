@@ -4,8 +4,6 @@ import QtQuick.Layouts
 import BW.UICore
 import BuildWeather
 
-// Raw ninja output. Live mode is a visualization, not a replacement for the
-// compiler's own words: when a build fails this is where the error is.
 Item {
     id: page
 
@@ -87,7 +85,7 @@ Item {
                     text: modelData
                     variant: TextBW.Mono
                     font.pixelSize: Style.fontSizeXS
-                    // Errors and warnings should be findable by eye.
+                    // errors and warnings findable by eye
                     color: /(^|\s)(error|FAILED)/i.test(modelData)
                            ? Style.danger
                            : (/warning/i.test(modelData) ? Style.warning

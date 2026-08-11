@@ -2,15 +2,11 @@ import QtQuick
 import QtQuick.Controls.Basic
 import BW.UICore
 
-// Information-dense table over a QAbstractTableModel. Deliberately plain:
-// the analysis tab is for reading numbers, so there is no animation, no
-// alternating decoration beyond a faint row band, and the numeric columns
-// are monospaced so digits line up.
 Rectangle {
     id: root
 
     property alias model: view.model
-    /// One entry per column: { title, width, align, mono }.
+    // one entry per column: { title, width, align, mono }
     property var columns: []
     property int rowHeight: 24
     property int currentRow: -1
@@ -42,7 +38,6 @@ Rectangle {
         return columns[index].width
     }
 
-    // ---- header --------------------------------------------------------
     Rectangle {
         id: header
         anchors { left: parent.left; right: parent.right; top: parent.top }
@@ -83,7 +78,6 @@ Rectangle {
         }
     }
 
-    // ---- rows ----------------------------------------------------------
     ListView {
         id: view
         anchors {
@@ -177,7 +171,6 @@ Rectangle {
         }
     }
 
-    // ---- empty state ---------------------------------------------------
     TextBW {
         anchors.centerIn: parent
         visible: view.count === 0

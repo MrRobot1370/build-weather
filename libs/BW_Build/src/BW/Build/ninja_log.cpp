@@ -12,10 +12,8 @@ namespace BW::Build
 
 namespace {
 
-/// Newest header version whose layout has actually been checked. v5 is the
-/// documented one; v6 (ninja 1.12) was verified byte for byte against the
-/// ninja that ships with Visual Studio 2022 and keeps the same five
-/// tab-separated fields.
+/// Newest header version whose layout has been checked. v5 is documented and
+/// v6 (ninja 1.12) keeps the same five tab-separated fields.
 constexpr int kNewestKnownVersion = 6;
 
 template <typename T>
@@ -232,7 +230,9 @@ auto NinjaLog::lastInvocationEntries() const -> std::vector<TargetRecord>
 {
     // Ninja builds an output at most once per invocation, so walking
     // backwards until an output repeats lands on the boundary of the most
-    // recent run without relying on any timestamp ordering.
+    // recent run without relying on any timestamp ordering. end_ms is not
+    // monotonic within a run and mtime records the source file for copy
+    // edges, so neither can be used to find the boundary.
     std::unordered_set<std::string> seen;
     seen.reserve(entries.size());
 

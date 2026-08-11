@@ -4,12 +4,9 @@ import QtQuick.Layouts
 import BW.UICore
 import BuildWeather
 
-// Scrub back through a build and watch it happen again.
-//
-// The event stream already exists: a .ninja_log carries both a start and an
-// end for every target, so replay needs no extra capture. It is only honest
-// for one build session, though, because timestamps from different ninja
-// invocations do not share a clock; the bar says so when the scope is wrong.
+// Replay is only honest within one build session: timestamps from different
+// ninja invocations do not share a clock. The bar says so when the scope is
+// wrong.
 Rectangle {
     id: root
 
@@ -95,10 +92,7 @@ Rectangle {
             color: Style.textSecondary
         }
 
-        // Playback rate. 64x exists because a four minute build at 16x is
-        // still sixteen seconds of watching, and the speed only has any
-        // visible effect while playing, which the tooltip says out loud
-        // because it is not obvious from the control.
+        // playback rate, only visible while playing
         Segmented {
             id: speed
             readonly property var factors: [1, 4, 16, 64]
@@ -112,8 +106,7 @@ Rectangle {
             enabled: root.usable
             onActivated: function(index) {
                 AppContext.replaySpeed = factors[index]
-                // Changing the rate mid-thought almost always means "and go",
-                // and doing nothing here is what makes the control feel dead.
+                // changing the rate means "and go"
                 if (!AppContext.replayPlaying)
                     AppContext.replayPlay()
             }

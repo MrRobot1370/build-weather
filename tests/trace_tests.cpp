@@ -79,11 +79,8 @@ void TraceTests::parsesTheCheckedInTrace()
 
 void TraceTests::parsesAsyncBeginEndEncoding()
 {
-    // clang 15 and later write the include tree as async "b"/"e" pairs
-    // instead of complete "X" events. Both fixtures describe the same
-    // compilation, so both must produce the same numbers; handling only the
-    // "X" form silently yields an empty header ranking against a real
-    // clang 19 trace.
+    // Both fixtures describe the same compilation in the two encodings, so
+    // both must produce the same numbers.
     const TimeTraceUnit unit = parseTimeTrace(
         readFixture("sample-time-trace-async.json"),
         "F:/proj/build/x/time_trace.cpp.json");
@@ -146,9 +143,7 @@ void TraceTests::repeatedIncludesAccumulate()
 
 void TraceTests::normalizesMixedSeparators()
 {
-    // The fixture spells qstring.h with forward slashes once and backslashes
-    // once; they have to collapse to one entry, which is exactly the failure
-    // mode path normalization exists to prevent.
+    // the fixture spells qstring.h both ways; they collapse to one entry
     const TimeTraceUnit unit = parseTimeTrace(
         readFixture("sample-time-trace.json"),
         "heavy.cpp.json");
@@ -198,8 +193,7 @@ void TraceTests::rejectsNonTraceJson()
 
 void TraceTests::survivesTruncatedJson()
 {
-    // A trace from a compiler that was killed mid-write must still yield the
-    // events that did land, with a warning rather than a crash.
+    // a truncated trace still yields the events that landed, with a warning
     const std::string truncated
         = R"({"traceEvents":[)"
           R"({"ph":"X","ts":0,"dur":500,"name":"Source","args":{"detail":"a.h"}},)"
@@ -223,8 +217,7 @@ void TraceTests::aggregatesAcrossTranslationUnits()
     QCOMPARE(aggregate.frontendUs(), Micros { 27000 });
     QCOMPARE(aggregate.backendUs(), Micros { 15000 });
 
-    // The ranking is the number the project exists to produce: cost summed
-    // over every TU, with the TU count alongside it.
+    // cost summed over every TU, with the TU count alongside it
     const auto &headers = aggregate.headers();
     QCOMPARE(headers.size(), std::size_t { 3 });
     QCOMPARE(headers.front().path.find("heavy.h") != std::string::npos, true);

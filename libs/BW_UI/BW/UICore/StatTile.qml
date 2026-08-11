@@ -2,8 +2,6 @@ import QtQuick
 import QtQuick.Layouts
 import BW.UICore
 
-// One number with its label. The status strip and the analysis summary are
-// both rows of these, so the numbers line up and share one type ramp.
 Item {
     id: root
     property string label: ""

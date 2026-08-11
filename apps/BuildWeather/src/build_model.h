@@ -1,12 +1,9 @@
 #pragma once
 
-// The single source of truth the whole UI reads from.
-//
 // Owns the parsed snapshot, the treemap hierarchy built from it, and the
 // per-leaf runtime state that live mode and replay drive. TreemapItem reads
-// this through the plain C++ accessors (no QVariant round trips per leaf,
-// which matters at several thousand files); QML reads the summary through
-// properties.
+// it through the plain C++ accessors, so there is no QVariant round trip per
+// leaf; QML reads the summary through properties.
 
 #include "BW/Build/build_snapshot.h"
 #include "BW/Build/compile_commands.h"
@@ -25,8 +22,8 @@
 namespace BW::UI
 {
 
-/// Where a leaf is in its lifecycle. Post-mortem data starts at Finished;
-/// live mode and replay move leaves through Running.
+/// Post-mortem data starts at Finished; live mode and replay move leaves
+/// through Running.
 enum class LeafState
 {
     Pending, ///< known from a previous build, not touched by this one
@@ -39,11 +36,9 @@ struct LeafVisual
     double value { 1.0 }; ///< area weight fed to the layout
     Build::Millis durationMs { 0 };
     LeafState state { LeafState::Finished };
-    /// Wall clock (ms since app start) of the last state change; drives the
-    /// 400 ms settle from the in-flight highlight to the final colour.
+    /// ms since app start, of the last state change; drives the settle
     qint64 changedAtMs { 0 };
-    /// Signed delta against the baseline build, in ms. Only meaningful when
-    /// the model is in comparison mode.
+    /// signed delta against the baseline, ms; comparison mode only
     Build::Millis deltaMs { 0 };
     bool inBaseline { false };
 };
@@ -73,8 +68,8 @@ class BuildModel : public QObject
 
     /// 0 = every target's most recent entry, 1 = the last ninja invocation.
     Q_PROPERTY(int scope READ scope WRITE setScope NOTIFY scopeChanged)
-    /// True when the log accumulated over more than one build, so its
-    /// timestamps come from more than one clock.
+    /// true when the log spans more than one build, and so more than one
+    /// clock
     Q_PROPERTY(bool multiBuildLog READ multiBuildLog NOTIFY statsChanged)
     /// Drill-down root; empty means the whole tree.
     Q_PROPERTY(QString focusPath READ focusPath WRITE setFocusPath
@@ -92,10 +87,9 @@ public:
 
     // --- loading ---------------------------------------------------------
 
-    /// Points the model at a build directory: reads `.ninja_log` and, when
-    /// present, `compile_commands.json`. The source root is inferred from
-    /// the compile database, or guessed two levels up from the build
-    /// directory when there is none.
+    /// Reads `.ninja_log` and, when present, `compile_commands.json`. The
+    /// source root comes from the compile database, or is guessed two levels
+    /// up from the build directory.
     Q_INVOKABLE bool loadBuildDirectory(const QString &directory);
 
     /// Loads a `.ninja_log` directly; the build directory is its parent.
@@ -156,7 +150,7 @@ public:
     }
 
     /// Reference maximum the heat ramp is normalised against: the 98th
-    /// percentile of the step durations, so one pathological file cannot
+    /// percentile of the step durations, so one outlier cannot
     /// flatten the whole map. Cached, because TreemapItem asks once per cell
     /// per frame and recomputing a selection each time is O(n) per cell.
     [[nodiscard]]

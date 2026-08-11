@@ -2,9 +2,6 @@ import QtQuick
 import QtQuick.Layouts
 import BW.UICore
 
-// One line of provenance: which data source is present and what it bought us.
-// Worth the space, because half the questions about a treemap are really
-// questions about where the numbers came from.
 RowLayout {
     id: root
     property string label: ""

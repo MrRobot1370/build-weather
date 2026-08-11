@@ -1,8 +1,5 @@
 #pragma once
 
-// Serialisation of the analysis so numbers can be pasted into a team
-// discussion or diffed in a script. Plain std::string output, no Qt.
-
 #include "BW/Build/build_snapshot.h"
 #include "BW/Build/time_trace.h"
 

@@ -1,24 +1,18 @@
 #pragma once
 
 // Live mode: run ninja as a child process and turn it into an event stream.
+// Two sources, both carrying completions and neither carrying starts:
 //
-// Two sources, and it is worth being precise about what each one gives:
+//   stdout status lines   which edge completed, its description, the
+//                         finished/total counters and %r
+//   .ninja_log tail       the same completions with the exact start and end
+//                         offsets ninja measured
 //
-//   stdout status lines   which edge just completed, its description (hence
-//                         its output path), the finished/total counters and
-//                         %r, ninja's own count of edges still running
-//   `.ninja_log` tail     the same completions again, but with the exact
-//                         start and end offsets ninja measured
+// So the map animates on completion: a cell flashes as its status line
+// arrives and settles once the log record confirms the duration. The
+// in-flight count comes from %r rather than from counting events.
 //
-// Note what is *not* in that list: start events. Ninja prints a status line
-// on edge start only when it thinks stdout is a terminal, and a child
-// process never gets one. So the map animates on completion: a cell flashes
-// as its status line arrives and settles once the log record confirms the
-// duration. The in-flight count comes from %r rather than from counting
-// events, which is both simpler and exactly right.
-//
-// NINJA_STATUS is set explicitly on the child so the prefix format is known
-// rather than assumed; see ninja_progress.h.
+// NINJA_STATUS is set explicitly on the child; see ninja_progress.h.
 
 #include "BW/Build/ninja_log.h"
 #include "BW/Build/ninja_progress.h"
@@ -69,8 +63,8 @@ public:
     /// Asks ninja to stop, then kills it if it does not.
     Q_INVOKABLE void stop();
 
-    /// Best-effort location of a ninja executable. Checks PATH first, then
-    /// the copy Visual Studio ships with its CMake integration.
+    /// Checks PATH first, then the copy Visual Studio ships with its CMake
+    /// integration.
     Q_INVOKABLE static QString findNinja();
 
     [[nodiscard]]
@@ -156,14 +150,12 @@ Q_SIGNALS:
     void buildStarted();
     void buildFinished(int exitCode, bool success);
 
-    /// Ninja reported a step. Behind a pipe this arrives when the edge
-    /// finishes, not when it starts; see ninja_progress.h. `outputPath` may
-    /// be empty when the rule description was not one we recognise.
+    /// Behind a pipe this arrives when the edge finishes, not when it
+    /// starts. `outputPath` is empty for an unrecognised rule description.
     void stepObserved(const QString &outputPath, const QString &description);
 
     /// Records appended to `.ninja_log` since the last poll. Direct
-    /// connection only: this carries a plain C++ type on purpose so the map
-    /// is updated without a QVariant round trip per file.
+    /// connection only: a plain C++ type, so no QVariant round trip per file.
     void stepsFinished(const std::vector<Build::TargetRecord> &records);
 
 private Q_SLOTS:

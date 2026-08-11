@@ -1,17 +1,12 @@
 #pragma once
 
-// Path normalization for Build Weather.
+// The data sources disagree about separators, casing and whether a path is
+// absolute, so every path entering the application goes through
+// normalizePath() for display and pathKey() for joining. Nothing joins on a
+// raw string.
 //
-// Ninja gives paths relative to the build directory, -ftime-trace gives
-// absolute paths, compile_commands.json gives a mix, and on Windows all of
-// them may disagree about separators and casing. Every path that enters the
-// application goes through normalizePath() for display and pathKey() for
-// joining, and nothing ever joins on a raw string.
-//
-// Deliberately free of Qt and of std::filesystem: these functions are pure
-// string transforms so they are cheap, deterministic and unit-testable, and
-// they never touch the disk (a header recorded in a trace may no longer
-// exist).
+// Pure string transforms, free of Qt and std::filesystem: they never touch
+// the disk, because a header recorded in a trace may no longer exist.
 
 #include <optional>
 #include <string>
@@ -27,9 +22,8 @@ namespace BW::Core
 [[nodiscard]]
 auto normalizePath(std::string_view path) -> std::string;
 
-/// Case-folded key derived from normalizePath(). Windows file systems are
-/// case-insensitive, so this - never the display string - is what two data
-/// sources are joined on.
+/// Case-folded key derived from normalizePath(). This, never the display
+/// string, is what two data sources are joined on.
 [[nodiscard]]
 auto pathKey(std::string_view path) -> std::string;
 
@@ -61,26 +55,26 @@ auto extension(std::string_view path) -> std::string;
 [[nodiscard]]
 auto splitSegments(std::string_view path) -> std::vector<std::string>;
 
-/// Where a file sits relative to the project being measured. Generated files,
-/// third-party checkouts and system headers each get their own bucket so they
-/// do not distort the source-tree map.
+/// Where a file sits relative to the project being measured. Each bucket is
+/// kept apart so it does not distort the source-tree map.
 enum class PathBucket
 {
-    SourceTree, ///< Under the source root, authored by the user.
-    Generated, ///< Under the build root (moc_*, ui_*, protobuf output, ...).
-    External, ///< Absolute, outside both roots (vendored SDKs, 3rdparty).
-    System ///< Toolchain / SDK headers.
+    SourceTree, ///< under the source root, authored by the user
+    Generated, ///< under the build root (moc_*, ui_*, protobuf output)
+    External, ///< absolute, outside both roots (vendored SDKs, 3rdparty)
+    System ///< toolchain / SDK headers
 };
 
 [[nodiscard]]
 auto bucketName(PathBucket bucket) -> const char *;
 
-/// Maps any incoming path onto a single tree of display paths.
-///
-/// Everything the UI shows is a *tree path*: a normalized relative path whose
-/// first segment is either a real source directory or one of the synthetic
-/// bucket roots below. That keeps the treemap honest - a system header cannot
-/// pretend to live in `src/`.
+/**
+ * @brief Maps any incoming path onto a single tree of display paths.
+ *
+ * Everything the UI shows is a tree path: a normalized relative path whose
+ * first segment is either a real source directory or one of the synthetic
+ * bucket roots below, so a system header cannot appear to live in src/.
+ */
 class PathClassifier
 {
 public:
@@ -93,10 +87,8 @@ public:
     void setSourceRoot(std::string_view root);
     void setBuildRoot(std::string_view root);
 
-    /// Extra absolute prefixes to be treated as toolchain headers. The
-    /// built-in heuristics already cover the MSVC toolset, the Windows SDK
-    /// and a Qt installation; add compiler include directories here when they
-    /// are known exactly.
+    /// Extra absolute prefixes to treat as toolchain headers. The built-in
+    /// heuristics already cover the MSVC toolset, the Windows SDK and Qt.
     void addSystemPrefix(std::string_view prefix);
 
     [[nodiscard]]

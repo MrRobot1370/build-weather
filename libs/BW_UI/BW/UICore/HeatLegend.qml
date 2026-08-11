@@ -1,8 +1,6 @@
 import QtQuick
 import BW.UICore
 
-// The key to the map. Without it the colours are decoration; with it they
-// are a scale, so it is always on screen next to the treemap.
 Item {
     id: root
     property real maxMs: 0
@@ -30,9 +28,7 @@ Item {
             border.width: 1
             border.color: Style.borderSubtle
 
-            // Where the median sits on the scale. Without it the reader has
-            // no way to tell a map that is hot because the build is slow
-            // from one that is hot because the scale is compressed.
+            // where the median sits on the scale
             Rectangle {
                 visible: root.maxMs > 0 && root.medianMs > 0
                 x: Math.min(parent.width - 1,

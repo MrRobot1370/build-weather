@@ -14,8 +14,8 @@ namespace BW::UI
 
 namespace {
 
-/// One clock for every animation in the app, so the settle timing is
-/// identical whether it came from a live event or a replay scrub.
+/// One clock for every animation, so the settle is identical whether it came
+/// from a live event or a replay scrub.
 auto nowMs() -> qint64
 {
     static QElapsedTimer timer = [] {
@@ -31,14 +31,13 @@ auto toStd(const QString &text) -> std::string
     return text.toStdString();
 }
 
-/// Leaves with a zero duration still have to be visible, otherwise a fast
-/// file silently vanishes from the map and the tree stops matching the disk.
+/// Area floor: a zero-duration leaf still has to be visible, or the tree
+/// stops matching the disk.
 constexpr double kMinLeafValue = 0.35;
 
-/// Backdating a leaf's last state change by more than the settle duration
-/// marks it as "long since finished". Loading a log is not a build: without
-/// this every leaf starts mid-completion-flash and the whole map renders in
-/// the flash colour instead of its heat colour.
+/// Backdated past the settle, so a leaf reads as long since finished.
+/// Loading a log is not a build: without this the whole map renders in the
+/// completion-flash colour.
 constexpr qint64 kAlreadySettledMs = 10000;
 
 auto areaValue(Build::Millis durationMs) -> double
@@ -83,13 +82,12 @@ auto BuildModel::loadNinjaLog(const QString &path) -> bool
     }
     m_log = std::move(*log);
 
-    // The compile database is the reliable object-to-source join. Without it
-    // we fall back to the CMake object path convention, which is a guess.
+    // the reliable object-to-source join; without it the fallback is a guess
     std::string commandsError;
     m_haveCommands
         = m_commands.load(toStd(m_buildDirectory), commandsError);
     if (m_haveCommands && m_sourceDirectory.isEmpty()) {
-        // Deepest common ancestor of every compiled file is the source root.
+        // deepest common ancestor of every compiled file
         std::string root;
         for (const auto &entry : m_commands.entries()) {
             if (root.empty()) {
@@ -213,8 +211,7 @@ void BuildModel::touchValues()
 
 void BuildModel::recomputeScale()
 {
-    // The single slowest step would flatten everything else, so the scale
-    // tops out at the 98th percentile and anything above it saturates.
+    // the slowest step alone would flatten the scale, so it tops out at p98
     if (m_leaves.empty()) {
         m_scaleMaxMs = 1.0;
         return;
@@ -283,8 +280,8 @@ auto BuildModel::leafIndexForOutput(const QString &outputPath) const -> int
         it != m_indexByOutputKey.end()) {
         return it->second;
     }
-    // Ninja prints the description's path, which can differ in leading
-    // segments from the log's output path; fall back to the file name.
+    // the description's path can differ in leading segments from the log's
+    // output path, so fall back to the file name
     const std::string name
         = Core::pathKey(Core::fileName(toStd(outputPath)));
     for (const auto &[outputKey, index] : m_indexByOutputKey) {
@@ -315,8 +312,8 @@ auto BuildModel::loadBaseline(const QString &ninjaLogPath) -> bool
 
     Build::SnapshotOptions options;
     options.classifier.setSourceRoot(toStd(m_sourceDirectory));
-    // The baseline may come from a different build directory; resolve its
-    // paths against its own so the tree paths line up with ours.
+    // resolve the baseline against its own build directory, so its tree
+    // paths line up with ours
     options.classifier.setBuildRoot(
         Core::parentPath(toStd(QFileInfo { clean }.absoluteFilePath())));
     options.commands = m_haveCommands ? &m_commands : nullptr;
@@ -390,8 +387,8 @@ void BuildModel::noteStarted(const QString &outputPath)
 {
     const int index = leafIndexForOutput(outputPath);
     if (index < 0) {
-        // A target the previous log never saw. It gets a leaf on the next
-        // finish event, where we have a real duration to size it with.
+        // new target: it gets a leaf on the next finish event, which carries
+        // a real duration to size it with
         return;
     }
     LeafVisual &leaf = m_leaves[static_cast<std::size_t>(index)];
@@ -422,9 +419,8 @@ void BuildModel::noteFinished(const Build::TargetRecord &record)
     leaf.durationMs = record.durationMs();
     leaf.changedAtMs = nowMs();
     recomputeScale();
-    // The area deliberately does NOT change mid-build: a box resizing under
-    // the cursor while the map animates is unreadable. The new value lands
-    // at the next relayout.
+    // The area does not change mid-build: a box resizing under the cursor is
+    // unreadable. The new value lands at the next relayout.
     Q_EMIT liveChanged();
     touchValues();
 }
@@ -440,8 +436,7 @@ void BuildModel::endLive()
             leaf.changedAtMs = now;
         }
     }
-    // Re-read the log so durations, ranks and areas all come from the same
-    // authoritative source rather than from the events we happened to catch.
+    // re-read the log so durations, ranks and areas share one source
     if (!m_ninjaLogPath.isEmpty()) {
         std::string error;
         if (auto log = Build::readNinjaLog(toStd(m_ninjaLogPath), error)) {
@@ -483,8 +478,8 @@ void BuildModel::applyReplayTime(qint64 timeMs)
 
         if (state != leaf.state) {
             leaf.state = state;
-            // Anchor the settle animation to the replayed finish moment so
-            // scrubbing backwards does not re-trigger a fade.
+            // anchored to the replayed finish, so scrubbing back does not
+            // re-trigger the fade
             leaf.changedAtMs = state == LeafState::Finished
                 ? now - std::min<qint64>(timeMs - target.endMs, 10000)
                 : now;

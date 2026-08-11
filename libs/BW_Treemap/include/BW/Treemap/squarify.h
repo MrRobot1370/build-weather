@@ -1,17 +1,5 @@
 #pragma once
 
-// Squarified treemap layout (Bruls, Huizing, van Wijk, 2000).
-//
-// Two properties this implementation is written for:
-//
-//  * Stability. Children are ordered by name by default, never by value, so a
-//    file keeps its place from build to build and only its *area* changes.
-//    That is the whole point of comparing two runs. Order::ByValueDesc is
-//    available and gives better aspect ratios, but it makes positions move
-//    whenever a duration moves, so it is not the default.
-//  * Visible structure. Each directory reserves a header band and insets its
-//    children, so the nesting is readable rather than implied.
-
 #include "BW/Treemap/tree.h"
 
 #include <vector>
@@ -41,10 +29,9 @@ struct Rect
 
 enum class Order
 {
-    /// Deterministic and independent of the values: a file only moves when
-    /// the file set changes.
+    /// a file only moves when the file set changes, not when a duration does
     ByName,
-    /// Classic squarified ordering. Better aspect ratios, unstable positions.
+    /// classic squarified ordering: better aspect ratios, unstable positions
     ByValueDesc
 };
 
@@ -53,60 +40,50 @@ struct LayoutOptions
     Order order { Order::ByName };
     /// Inset applied inside a directory before laying out its children.
     double padding { 2.0 };
-    /// Band reserved at the top of a directory for its label. Reserved in
-    /// full or not at all; see LayoutItem::headerHeight. A caller that draws
-    /// text in the band must pass the height that text actually needs, not a
-    /// round number, or the two disagree and the label is either clipped or
-    /// drawn over the children.
+    /// Band reserved at the top of a directory for its label, in full or not
+    /// at all. A caller that draws text in the band must pass the height that
+    /// text needs, or the label is clipped or drawn over the children.
     double headerHeight { 14.0 };
     /// A band is only reserved on a box at least this many times as tall as
-    /// the band itself. Below it the directory goes unlabelled and its
-    /// children take the whole box: a band on a short box is mostly chrome,
-    /// and leaves too little room for the contents to read as contents.
+    /// the band, and at least this wide.
     double minHeaderBoxRatio { 2.5 };
-    /// And only on a box wide enough for a name to be worth eliding into.
-    /// Narrower, the reservation buys nothing and shows up as an empty strip
-    /// above the contents, which reads as a rendering fault.
     double minHeaderWidth { 46.0 };
     /// Directories smaller than this are drawn as a single block instead of
-    /// being recursed into; this is what keeps several thousand files fast.
+    /// being recursed into.
     double minRecurseSize { 24.0 };
     /// Hard depth cap; negative means unlimited.
     int maxDepth { -1 };
 };
 
-/// LIFETIME: `node` points into the tree that was laid out. Keep the Node
-/// alive for as long as the layout is used; passing a temporary tree to
-/// layout() leaves every item dangling.
+/// LIFETIME: `node` points into the tree that was laid out; passing a
+/// temporary tree to layout() leaves every item dangling.
 struct LayoutItem
 {
     const Node *node { nullptr };
     Rect rect;
     int depth { 0 };
-    /// True when the node is drawn as a filled cell (a leaf, or a directory
-    /// that was too small to recurse into).
+    /// True for a filled cell: a leaf, or a directory too small to recurse
+    /// into.
     bool isCell { false };
-    /// Height reserved at the top of `rect` for this directory's label, before
-    /// the children were laid out. Either the full LayoutOptions::headerHeight
-    /// or zero, never something in between: a partial band cannot hold a label
-    /// without clipping it, and reserving one anyway leaves an empty strip.
-    ///
-    /// Zero for cells, for the canvas at depth 0, and for any directory too
-    /// short to spare the space. A renderer must label a directory if and only
-    /// if this is non-zero, and must keep the label inside it.
+    /// Height reserved at the top of `rect` for this directory's label. Zero
+    /// for cells, for the canvas at depth 0, and for any box too small to
+    /// spare it. A renderer must label a directory if and only if this is
+    /// non-zero, and must keep the label inside it.
     double headerHeight { 0.0 };
 };
 
-/// Lays `root` out inside `bounds`. Output is in draw order: a directory
-/// always precedes its children, so a painter can draw backgrounds then
-/// contents in one pass.
+/**
+ * @brief Lays `root` out inside `bounds`.
+ *
+ * Output is in draw order: a directory always precedes its children, so a
+ * painter can draw backgrounds then contents in one pass.
+ */
 void layout(
     const Node &root,
     const Rect &bounds,
     const LayoutOptions &options,
     std::vector<LayoutItem> &out);
 
-/// Convenience overload.
 [[nodiscard]]
 auto layout(
     const Node &root,

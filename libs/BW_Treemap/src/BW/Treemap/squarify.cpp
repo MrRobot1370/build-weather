@@ -37,8 +37,8 @@ auto orderedChildren(const Node &node, Order order) -> std::vector<Child>
             });
     }
     else {
-        // Node::children already arrive name-ordered from TreeBuilder, but
-        // sorting here keeps the guarantee independent of the producer.
+        // already name-ordered from TreeBuilder; sorting here keeps the
+        // guarantee independent of the producer
         std::stable_sort(
             children.begin(),
             children.end(),
@@ -156,15 +156,10 @@ void layoutNode(
         return;
     }
 
-    // All or nothing. A label needs its full height to render without being
-    // clipped through the glyphs, so either the box can spare that much (and
-    // still have room left to read as a container) or it gets no band at all
-    // and its children take the whole box.
-    //
-    // Scaling the band down instead produced two bugs at once: a renderer
-    // drawing a full-height label into a part-height reservation put the name
-    // on top of the children, and clamping the label to the reservation left
-    // an empty strip that looked like a rendering fault.
+    // All or nothing: a label needs its full height, so either the box can
+    // spare that and still read as a container, or it gets no band and its
+    // children take the whole box. A part-height band can only be drawn over
+    // the children or left as an empty strip.
     const bool roomForBand
         = bounds.h >= options.headerHeight * options.minHeaderBoxRatio
         && bounds.w >= options.minHeaderWidth;
@@ -219,12 +214,10 @@ void layout(
     }
     out.reserve(static_cast<std::size_t>(root.leafCount) * 2 + 16);
 
-    // The root is the canvas, not a drawn directory: it gets no border and no
-    // label, so its children take the whole rectangle rather than losing a
-    // band to a frame nobody needs. headerHeight stays 0 to say so, which is
-    // what stops a renderer from labelling it - drilling into a directory
-    // makes that directory the root, and labelling it here would put its name
-    // on top of its first child's.
+    // The root is the canvas, not a drawn directory, so its children take the
+    // whole rectangle. headerHeight stays 0 to stop a renderer labelling it:
+    // drilling in makes that directory the root, and its name would land on
+    // top of its first child.
     const auto children = orderedChildren(root, options.order);
     out.push_back({ &root, bounds, 0, false, 0.0 });
     squarify(children, bounds, options, 1, out);

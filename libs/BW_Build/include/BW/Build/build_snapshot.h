@@ -1,13 +1,12 @@
 #pragma once
 
-// The domain model the UI draws: a set of build steps, each already resolved
-// to a place in the source tree, plus the event stream needed to replay the
-// build.
+// A set of build steps, each already resolved to a place in the source tree,
+// plus the event stream needed to replay the build.
 //
-// This is where the three data sources are joined, and every join goes
-// through Core::pathKey(). A step's tree path comes from its *source* file
-// when one can be resolved, so a translation unit appears where the developer
-// expects it, not under CMakeFiles/.
+// Where the three data sources are joined, always through Core::pathKey(). A
+// step's tree path comes from its source file when one can be resolved, so a
+// translation unit appears where the developer expects it rather than under
+// CMakeFiles/.
 
 #include "BW/Build/compile_commands.h"
 #include "BW/Build/ninja_log.h"
@@ -29,10 +28,8 @@ struct TargetInfo
     Core::PathBucket bucket { Core::PathBucket::SourceTree };
     StepKind kind { StepKind::Other };
     int rank { 0 }; ///< 1 = slowest entry in the snapshot
-    /// Build steps merged into this entry. Greater than one when several
-    /// steps land on the same file, most often a generated source that is
-    /// first written and then compiled; the durations are summed, which is
-    /// what "what does this file cost me" means.
+    /// Build steps merged into this entry, greater than one when several
+    /// land on the same file. Durations are summed.
     int stepCount { 1 };
 };
 
@@ -57,11 +54,9 @@ struct SnapshotStats
 /// Which entries of a multi-build log to model.
 enum class LogScope
 {
-    /// Latest entry per output across the whole log. The right choice for the
-    /// heat map: it answers "what does a full build of this tree cost".
+    /// latest entry per output across the whole log: what a full build costs
     LatestPerOutput,
-    /// Only the most recent ninja invocation, found by scanning backwards
-    /// until an output repeats. The right choice for replay, because
+    /// The most recent invocation only. Needed for replay, because
     /// timestamps are only comparable inside one invocation.
     LastInvocation
 };
@@ -121,9 +116,8 @@ public:
     [[nodiscard]]
     auto indexOfTreePath(std::string_view treePath) const -> int;
 
-    /// Start and finish moments in chronological order. Only meaningful when
-    /// the snapshot came from one invocation (LogScope::LastInvocation)
-    /// or from a live capture.
+    /// Start and finish moments in chronological order. Only meaningful for
+    /// LogScope::LastInvocation or a live capture.
     [[nodiscard]]
     auto timeline() const -> const std::vector<BuildEvent> &
     {

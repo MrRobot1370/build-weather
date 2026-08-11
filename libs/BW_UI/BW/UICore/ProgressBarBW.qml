@@ -1,8 +1,6 @@
 import QtQuick
 import BW.UICore
 
-// Slim, unobtrusive progress bar. Sits in the status strip during a live
-// build and disappears when nothing is running.
 Rectangle {
     id: root
     property real value: 0.0      // 0 .. 1

@@ -15,16 +15,13 @@ namespace BW::UI
 
 namespace {
 
-/// The log is polled rather than watched: QFileSystemWatcher coalesces
-/// rapid appends and would drop completions during a parallel build.
+/// Polled rather than watched: QFileSystemWatcher coalesces rapid appends
+/// and would drop completions during a parallel build.
 constexpr int kPollIntervalMs = 60;
 
-/// cl.exe finds neither the CRT headers nor the import libraries unless
-/// INCLUDE and LIB are set, and those come from vcvars64.bat. A GUI app
-/// started from Explorer or the Start menu does not have them, so every
-/// compile fails with C1083 and the map just goes red. Catching it up front
-/// with an actionable message beats letting the user read 40 identical
-/// compiler errors.
+/// cl.exe needs INCLUDE and LIB from vcvars64.bat, which a GUI app started
+/// from Explorer does not have. Every compile then fails with C1083, so this
+/// is caught up front with an actionable message.
 auto looksLikeMsvcBuild(const QString &buildDirectory) -> bool
 {
     QFile cache { buildDirectory + "/CMakeCache.txt" };
@@ -85,8 +82,7 @@ auto BuildRunner::findNinja() -> QString
         return QDir::fromNativeSeparators(onPath);
     }
 
-    // Visual Studio ships ninja with its CMake integration; on a machine
-    // with only the VS build tools installed this is the only copy present.
+    // with only the VS build tools installed, this is the only copy present
     static const QStringList kCandidates {
         "C:/Program Files/Microsoft Visual Studio/2022/Enterprise/Common7/IDE/"
         "CommonExtensions/Microsoft/CMake/Ninja/ninja.exe",
@@ -182,8 +178,7 @@ auto BuildRunner::start(
 
     QProcessEnvironment environment
         = QProcessEnvironment::systemEnvironment();
-    // Pin the status prefix so the progress parser is not guessing at a
-    // format that varies by ninja version and by the user's environment.
+    // pin the prefix, which otherwise varies by ninja version and environment
     environment.insert(
         "NINJA_STATUS",
         QString::fromLatin1(Build::kRequiredStatusFormat));
@@ -238,10 +233,9 @@ void BuildRunner::onReadyRead()
         m_total = line.total;
         m_currentStep = QString::fromStdString(line.description);
         ++m_startedCount;
-        // %r is ninja's own count of edges currently running. Deriving it
-        // from our own bookkeeping does not work: behind a pipe ninja emits
-        // one status line per *finished* edge, so started and finished
-        // counts move together and their difference is always zero.
+        // %r is ninja's own count of running edges. Deriving it here cannot
+        // work: behind a pipe every status line is a finish, so started and
+        // finished move together and their difference is always zero.
         if (line.running >= 0) {
             m_activeJobs = line.running;
             m_peakJobs = std::max(m_peakJobs, m_activeJobs);
@@ -254,10 +248,8 @@ void BuildRunner::onReadyRead()
                 .arg(line.total)
                 .arg(QString::fromStdString(line.description)));
 
-        // Behind a pipe this line means "this edge just finished". The map
-        // still flashes the cell as in flight for the moment between this
-        // and the matching .ninja_log record landing, which is what makes a
-        // parallel build read as a shimmer rather than a step change.
+        // Behind a pipe this line is a finish. The cell still flashes as in
+        // flight until the matching .ninja_log record lands.
         Q_EMIT stepObserved(
             QString::fromStdString(line.outputPath),
             QString::fromStdString(line.description));
@@ -269,8 +261,7 @@ void BuildRunner::onReadyRead()
     if (progressed) {
         Q_EMIT progressChanged();
     }
-    // Compiler diagnostics arrive interleaved with progress; pick up any
-    // completions they raced ahead of.
+    // diagnostics interleave with progress; pick up completions they passed
     pollLog();
 }
 

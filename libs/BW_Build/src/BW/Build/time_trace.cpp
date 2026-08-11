@@ -189,12 +189,10 @@ auto parseTimeTrace(std::string_view json, std::string_view tracePath)
     std::string key;
     std::string scratch;
 
-    // NESTING NOTE: clang appends each event to the trace when its scope
-    // *ends*, so a child is written before its parent and the document is
-    // not in pre-order. Self time therefore cannot be computed in one pass.
-    // Only the Source events are retained (a small fraction of a trace) and
-    // sorted into pre-order afterwards; everything else is accumulated
-    // straight away.
+    // clang appends each event when its scope ends, so a child is written
+    // before its parent and the document is not in pre-order. Self time
+    // cannot be computed in one pass: the Source events are retained and
+    // sorted into pre-order afterwards, everything else accumulates directly.
     struct SourceEvent
     {
         Micros ts { 0 };
@@ -284,14 +282,10 @@ auto parseTimeTrace(std::string_view json, std::string_view tracePath)
                 }
             };
 
-            // ENCODING NOTE: clang does not use one shape for everything.
-            // Up to clang 14 every event was a complete "X" with a `dur`;
-            // clang 15 and later emit the include tree as async "b"/"e"
-            // pairs instead (all with id 0, so they match LIFO per thread)
-            // and keep "X" for instantiations, passes and the "Total ..."
-            // summaries. Assuming either shape alone loses half the data:
-            // with only "X" the header ranking comes out empty, which is the
-            // one number the analysis view exists for. Both are handled.
+            // Both encodings are handled: up to clang 14 every event is a
+            // complete "X" with a dur, clang 15 and later emit the include
+            // tree as async "b"/"e" pairs (all id 0, so they match LIFO per
+            // thread) and keep "X" for the rest.
             std::unordered_map<std::int64_t, std::vector<OpenEvent>> open;
 
             TraceEvent event;

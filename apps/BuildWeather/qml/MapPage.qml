@@ -4,8 +4,6 @@ import QtQuick.Layouts
 import BW.UICore
 import BuildWeather
 
-// The map. A treemap of the source tree on the left, a thin inspector on the
-// right, and the replay transport underneath.
 Item {
     id: page
 
@@ -20,13 +18,12 @@ Item {
         anchors.margins: Style.space3
         spacing: Style.space3
 
-        // ================= map ============================================
         ColumnLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
             spacing: Style.space1
 
-            // ---- breadcrumb and view controls -----------------------------
+            // breadcrumb and view controls
             RowLayout {
                 Layout.fillWidth: true
                 spacing: Style.space2
@@ -45,7 +42,6 @@ Item {
                     elide: Text.ElideMiddle
                 }
 
-                // ---- zoom -------------------------------------------------
                 ButtonBW {
                     text: "−"
                     implicitWidth: 28
@@ -149,7 +145,6 @@ Item {
                 }
             }
 
-            // ---- the map itself --------------------------------------------
             Rectangle {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
@@ -176,8 +171,7 @@ Item {
                     }
                 }
 
-                // Only show the grab cursor once there is somewhere to drag
-                // to, so at fit zoom the pointer still says "click me".
+                // grab cursor only once there is somewhere to drag to
                 MouseArea {
                     anchors.fill: map
                     acceptedButtons: Qt.NoButton
@@ -186,12 +180,8 @@ Item {
                                                    : Qt.ArrowCursor)
                 }
 
-                // Discoverability: nothing else tells you the map zooms.
-                //
-                // It floats over the map, so it necessarily covers a cell or
-                // two. That is acceptable for a few seconds and not
-                // acceptable permanently, so it retires itself once it has
-                // been read and does not come back.
+                // Zoom hint. It covers a cell or two, so it retires itself
+                // once it has been read and does not come back.
                 Rectangle {
                     id: hintBox
                     property bool retired: false
@@ -227,8 +217,8 @@ Item {
                     }
                 }
 
-                // Hover tooltip. Follows the cell rather than the cursor, so
-                // it does not jitter while scanning across small files.
+                // Follows the cell rather than the cursor, so it does not
+                // jitter while scanning across small files.
                 Rectangle {
                     id: tip
                     visible: map.hoveredPath !== ""
@@ -240,10 +230,8 @@ Item {
                     height: tipColumn.implicitHeight + 2 * Style.space1
                     x: Math.max(4, Math.min(parent.width - width - 4,
                                             map.hoveredAnchor.x - width / 2))
-                    // Above the cell by preference, below it when there is no
-                    // room above - and clamped either way, because a cell near
-                    // the bottom edge has no room on either side and the
-                    // tooltip would otherwise hang off the map.
+                    // above the cell by preference, below it otherwise,
+                    // clamped either way so it cannot hang off the map
                     y: Math.max(4, Math.min(parent.height - height - 4,
                                             map.hoveredAnchor.y > height + 8
                                             ? map.hoveredAnchor.y - height - 6
@@ -296,8 +284,7 @@ Item {
                     }
                 }
 
-                // Empty state: the app is useless without a build directory,
-                // so say exactly what to point it at.
+                // empty state
                 ColumnLayout {
                     anchors.centerIn: parent
                     visible: page.empty
@@ -321,11 +308,9 @@ Item {
                 }
             }
 
-            // ---- replay transport -------------------------------------------
             ReplayBar { Layout.fillWidth: true }
         }
 
-        // ================= inspector =========================================
         InspectorPanel {
             id: inspector
             Layout.preferredWidth: 320

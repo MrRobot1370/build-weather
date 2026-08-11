@@ -4,8 +4,6 @@ import QtQuick.Layouts
 import BW.UICore
 import BuildWeather
 
-// Everything about the current build that is worth a number rather than a
-// colour, plus the key to the map.
 Pane {
     id: root
 
@@ -81,7 +79,7 @@ Pane {
             color: Style.borderSubtle
         }
 
-        // ---- the cell under the cursor, or the last one clicked ----------
+        // the cell under the cursor, or the last one clicked
         TextBW { text: "Selection"; variant: TextBW.Eyebrow }
 
         TextBW {
@@ -97,7 +95,7 @@ Pane {
             elide: Text.ElideMiddle
         }
 
-        // ---- data source provenance --------------------------------------
+        // data source provenance
         Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 1
@@ -144,7 +142,7 @@ Pane {
             }
         }
 
-        // ---- parser diagnostics -------------------------------------------
+        // parser diagnostics
         ColumnLayout {
             Layout.fillWidth: true
             visible: AppContext.build.diagnostics.length > 0

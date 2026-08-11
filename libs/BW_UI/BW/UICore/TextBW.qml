@@ -1,9 +1,6 @@
 import QtQuick
 import BW.UICore
 
-// Themed text primitive. Colour, family, size and weight are bindings on
-// `variant` plus the active Style palette, so text re-themes live. Any of
-// them can still be overridden per instance.
 Text {
     id: root
     renderType: Text.NativeRendering

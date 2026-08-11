@@ -1,10 +1,8 @@
 #pragma once
 
-// clang-cl / clang `-ftime-trace` reader.
-//
-// With -ftime-trace the compiler writes a Chrome-tracing JSON next to each
-// object file (`foo.cpp.obj` -> `foo.cpp.json`). Inside are complete ("X")
-// events with a microsecond `dur`:
+// clang-cl / clang -ftime-trace reader. The compiler writes a Chrome-tracing
+// JSON next to each object file (foo.cpp.obj -> foo.cpp.json), holding events
+// with a microsecond dur:
 //
 //   Source                 one per included header, args.detail = its path
 //   InstantiateFunction    args.detail = the instantiated signature
@@ -14,18 +12,16 @@
 //   ExecuteCompiler        the whole invocation
 //
 // clang also emits pre-aggregated "Total <name>" events on a separate thread
-// id with args.count. Those are authoritative, so they are preferred when
-// present and recomputed by summation when they are not.
+// id with args.count. Those are preferred when present and recomputed by
+// summation when they are not.
 //
-// ENCODINGS: two of them, and both occur in the wild. Up to clang 14 every
-// event was a complete "X" with a `dur`. Since clang 15 the include tree
-// arrives as async "b"/"e" pairs (paired LIFO per thread, since every id is
-// 0) while instantiations, passes and the "Total ..." summaries stay "X".
-// Both are parsed; supporting only "X" produces an empty header ranking
-// against a current clang.
+// Two encodings occur in the wild: up to clang 14 every event is a complete
+// "X" with a dur, since clang 15 the include tree arrives as async "b"/"e"
+// pairs (paired LIFO per thread, since every id is 0) while the rest stay
+// "X". Parsing only "X" gives an empty header ranking on a current clang.
 //
-// Events on one thread are properly nested by (ts, dur), which is what makes
-// self time computable: self = dur - sum(direct children).
+// Events on one thread are properly nested by (ts, dur), so self time is
+// dur - sum(direct children).
 
 #include "BW/Build/build_types.h"
 
@@ -93,10 +89,10 @@ auto readTimeTrace(const std::string &path, std::string &error)
 [[nodiscard]]
 auto findTimeTraceFiles(const std::string &root) -> std::vector<std::string>;
 
-// --- cross-TU aggregation ---------------------------------------------------
+// cross-TU aggregation
 
-/// A header ranked across the whole project. `tuCount` is the point of the
-/// exercise: a 200 ms header included 400 times costs more than one 8 s file.
+/// A header ranked across the whole project. tuCount is the point: a 200 ms
+/// header included 400 times costs more than one 8 s file.
 struct HeaderAggregate
 {
     std::string path;

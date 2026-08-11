@@ -4,17 +4,14 @@ import QtQuick.Layouts
 import BW.UICore
 import BuildWeather
 
-// Plain, information dense, no animation. This is the tab that pays rent:
-// it answers "which header is adding four minutes to every rebuild".
 Item {
     id: page
 
-    /// Main.qml owns the file dialog; the pages only say what to write.
+    // Main.qml owns the file dialog; the pages only say what to write.
     signal exportRequested(string kind)
     signal tracesFolderRequested()
 
-    /// Which table is showing. Held here rather than inside the Segmented,
-    /// because that control is a controlled component and does not keep state.
+    // Which table is showing. Segmented is controlled and keeps no state.
     property int table: 0
 
     ColumnLayout {
@@ -22,7 +19,6 @@ Item {
         anchors.margins: Style.space3
         spacing: Style.space2
 
-        // ---- toolbar -------------------------------------------------------
         RowLayout {
             Layout.fillWidth: true
             spacing: Style.space2
@@ -92,7 +88,7 @@ Item {
             }
         }
 
-        // ---- frontend / backend split ---------------------------------------
+        // frontend / backend split
         Pane {
             Layout.fillWidth: true
             visible: AppContext.traces.hasData
@@ -153,7 +149,6 @@ Item {
             }
         }
 
-        // ---- the tables ------------------------------------------------------
         StackLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -258,7 +253,7 @@ Item {
             }
         }
 
-        // ---- empty state for the trace-only tables ---------------------------
+        // empty state for the trace-only tables
         TextBW {
             Layout.fillWidth: true
             visible: page.table > 0 && !AppContext.traces.hasData

@@ -3,9 +3,6 @@ import QtQuick.Layouts
 import BW.UICore
 import BuildWeather
 
-// Unobtrusive strip along the bottom: progress and elapsed time while a build
-// runs, and the parallelism readout. Watching parallelism collapse at the end
-// of a build is the diagnostic that pays for the whole live view.
 Rectangle {
     id: root
     implicitHeight: 26
@@ -51,8 +48,7 @@ Rectangle {
 
         Item { Layout.fillWidth: true }
 
-        // Parallelism, as a tiny bar chart of slots so a collapse is visible
-        // at a glance rather than as a number you have to read.
+        // parallelism, one slot per bar so a collapse is visible at a glance
         RowLayout {
             spacing: 2
             visible: AppContext.runner.running || AppContext.replayActive

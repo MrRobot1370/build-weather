@@ -1,22 +1,12 @@
 #pragma once
 
-// The heat ramp the map is coloured with.
-//
-// Single hue family, near-monotonic in perceived lightness so rank survives a
-// greyscale screenshot and stays readable for anyone with a colour vision
-// deficiency. Explicitly not a rainbow: a rainbow encodes no ordering, which
-// is the one thing this scale has to do.
-//
-// There are two ramps because there are two backgrounds. On the dark theme
-// cold is near-black and hot is pale, so hot cells glow. Reusing that on a
-// light background would be backwards: the hottest files would be the ones
-// closest to the page and would disappear. The light ramp therefore runs the
-// other way in lightness, pale for cheap files and deep red for expensive
-// ones, so in both themes "expensive" is the value furthest from the
-// background.
+// Single hue family, near-monotonic in perceived lightness, so rank survives
+// a greyscale screenshot. Two ramps because there are two backgrounds: in
+// both themes "expensive" is the value furthest from the background, which
+// means the light ramp runs the other way in lightness.
 //
 // Both sets are duplicated in BW/UICore/Style.qml (heatStops) so QML legends
-// and swatches match what the scene graph samples. Change both.
+// match what the scene graph samples. Change both.
 
 #include <QColor>
 
@@ -79,17 +69,15 @@ inline auto heat(float t, bool dark = true) -> Rgb
              a.b + (b.b - a.b) * f };
 }
 
-/// Position on the ramp for a duration.
-///
-/// Normalised against the reference maximum the caller supplies (the 98th
-/// percentile, so one pathological file cannot flatten the whole map) rather
-/// than an absolute time, so the scale means the same thing on any project.
-///
-/// The mapping is linear on purpose. Durations are heavily skewed and a
-/// compressing curve does make the fast files more distinguishable, but it
-/// also brightens the middle of the range until most of the map reads as
-/// hot, and area is *already* proportional to duration. Linear keeps colour
-/// and area saying the same thing.
+/**
+ * @brief Position on the ramp for a duration.
+ *
+ * Normalised against the caller's reference maximum (the 98th percentile, so
+ * one pathological file cannot flatten the map), not an absolute time.
+ *
+ * Linear on purpose: area is already proportional to duration, so a
+ * compressing curve would make colour and area say different things.
+ */
 [[nodiscard]]
 inline auto heatPosition(double durationMs, double maxMs) -> float
 {
@@ -107,8 +95,7 @@ inline auto toQColor(const Rgb &c, float alpha = 1.0f) -> QColor
 
 /// Diverging scale for the comparison view: red for a regression, green for
 /// an improvement, neutral in the middle. `t` is -1 .. +1. The neutral end
-/// follows the theme so an unchanged file recedes into the background instead
-/// of sitting on it as a dark blot.
+/// follows the theme so an unchanged file recedes into the background.
 [[nodiscard]]
 inline auto delta(float t, bool dark = true) -> Rgb
 {
@@ -126,9 +113,8 @@ inline auto delta(float t, bool dark = true) -> Rgb
              neutral.b + (target.b - neutral.b) * f };
 }
 
-/// The chrome the map draws over its cells, per theme: directory outlines,
-/// leaf and directory label ink, the not-yet-built fill and the completion
-/// flash. Kept here next to the ramp so the two cannot drift apart.
+/// The chrome the map draws over its cells, per theme. Kept next to the ramp
+/// so the two cannot drift apart.
 struct MapPalette
 {
     QColor directoryOutline;
@@ -141,14 +127,9 @@ struct MapPalette
     QColor selection;
 };
 
-/// Ink for a label drawn on top of `fill`.
-///
-/// Picked from the cell's own brightness, not from the theme. Both ramps span
-/// nearly the full lightness range, so a single ink colour is guaranteed to be
-/// invisible at one end: dark ink vanishes on the deep red of an expensive
-/// file in light mode, and equally on the near-black of a cheap one in dark
-/// mode. Relative luminance with the usual coefficients, thresholded at the
-/// midpoint.
+/// Ink for a label drawn on top of `fill`, picked from the cell's own
+/// brightness rather than the theme. Both ramps span nearly the full
+/// lightness range, so one fixed ink would be invisible at one end.
 [[nodiscard]]
 inline auto labelInkFor(const QColor &fill) -> QColor
 {
@@ -171,9 +152,8 @@ inline auto mapPalette(bool dark) -> MapPalette
                  QColor { 236, 242, 250, 235 },
                  QColor { 242, 160, 61 } };
     }
-    // `pending` is a cool grey on purpose. The light ramp's cheap end is a
-    // warm cream, and during a live build "not started yet" has to be
-    // distinguishable from "done, and it was cheap" at a glance.
+    // pending is a cool grey: the light ramp's cheap end is a warm cream, and
+    // "not started" has to be distinguishable from "done and cheap"
     return { QColor { 96, 108, 126 },
              QColor { 58, 68, 84 },
              QColor { 28, 24, 20, 225 },

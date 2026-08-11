@@ -58,7 +58,7 @@ private slots:
     void comparisonReportsDeltas();
 };
 
-// --- .ninja_log --------------------------------------------------------------
+// .ninja_log
 
 void NinjaTests::parsesTheCheckedInLog()
 {
@@ -114,16 +114,14 @@ void NinjaTests::findsTheLastInvocation()
     const NinjaLog log = parseNinjaLog(readFixture("sample.ninja_log"));
     QVERIFY(log.spansMultipleBuilds());
 
-    // The fixture's second build rebuilt time_trace.cpp.obj and relinked the
-    // executable. Scanning backwards stops as soon as an output repeats, so
-    // exactly those two entries come back.
+    // the second build rebuilt one object and relinked, so scanning back to
+    // the first repeated output returns exactly those two
     const auto last = log.lastInvocationEntries();
     QCOMPARE(last.size(), std::size_t { 2 });
     QCOMPARE(last.front().durationMs(), Millis { 2455 });
     QVERIFY(last.back().output.find("BuildWeather.exe") != std::string::npos);
 
-    // A log from a single build has nothing repeated, so the whole file is
-    // the last invocation.
+    // nothing repeats in a single build, so the whole file is the invocation
     const NinjaLog single = parseNinjaLog(
         "# ninja log v6\n"
         "0\t100\t0\ta.obj\t1\n"
@@ -134,9 +132,8 @@ void NinjaTests::findsTheLastInvocation()
 
 void NinjaTests::outOfOrderEndTimesDoNotSplitAnInvocation()
 {
-    // Measured against ninja 1.12: end_ms goes backwards inside a single
-    // run (a long edge is recorded before short ones). An earlier version of
-    // this parser split on that and reported 68 sessions for four builds.
+    // end_ms goes backwards inside a single run on ninja 1.12, so splitting
+    // sessions on it reports dozens of phantom builds
     const NinjaLog log = parseNinjaLog(
         "# ninja log v6\n"
         "0\t7102\t0\tslow.cpp.obj\t1\n"
@@ -174,7 +171,7 @@ void NinjaTests::warnsOnUnexpectedVersion()
             qPrintable(QString("v%1 produced a diagnostic").arg(version)));
     }
 
-    // Anything newer is flagged rather than silently misread.
+    // anything newer is flagged rather than misread
     const NinjaLog future
         = parseNinjaLog("# ninja log v9\n0\t100\t0\ta.obj\tabc\n");
     QCOMPARE(future.version, 9);
@@ -235,7 +232,7 @@ void NinjaTests::tailYieldsOnlyAppendedRecords()
     QCOMPARE(fresh.front().output, std::string { "only.obj" });
 }
 
-// --- progress lines ----------------------------------------------------------
+// progress lines
 
 void NinjaTests::parsesProgressLines()
 {
@@ -306,7 +303,7 @@ void NinjaTests::progressStreamHandlesSplitChunks()
     QCOMPARE(chunk.other.size(), std::size_t { 1 });
 }
 
-// --- compile_commands.json ---------------------------------------------------
+// compile_commands.json
 
 void NinjaTests::compileCommandsJoinObjectsToSources()
 {
@@ -337,7 +334,7 @@ void NinjaTests::objectPathGuessFallback()
         std::string { "libs/BW_Core/src/BW/Core/logger.cpp" });
 
     // "__" is CMake's encoding of a ".." segment, relative to the directory
-    // that declared the target: apps/../shared/a.cpp is shared/a.cpp.
+    // that declared the target
     QCOMPARE(
         guessSourceFromObject("apps/CMakeFiles/x.dir/__/shared/a.cpp.obj"),
         std::string { "shared/a.cpp" });
@@ -347,7 +344,7 @@ void NinjaTests::objectPathGuessFallback()
     QCOMPARE(guessSourceFromObject("some/random.obj"), std::string {});
 }
 
-// --- snapshot ----------------------------------------------------------------
+// snapshot
 
 namespace {
 
@@ -400,9 +397,8 @@ void NinjaTests::snapshotResolvesSourcesAndRanks()
 
 void NinjaTests::snapshotDropsDuplicateOutputSpellings()
 {
-    // Ninja logs an edge once per output name, and CMake gives some outputs
-    // both a build-relative and an absolute name. They are the same file and
-    // the same work, so counting both would inflate the total.
+    // CMake gives some outputs both a build-relative and an absolute name;
+    // counting both would inflate the total
     const std::string text = "# ninja log v6\n"
                              "0\t100\t0\tqml/a.qml\tabc\n"
                              "0\t100\t0\tF:/proj/build/qml/a.qml\tabc\n";
@@ -419,9 +415,8 @@ void NinjaTests::snapshotDropsDuplicateOutputSpellings()
 
 void NinjaTests::snapshotMergesStepsSharingAFile()
 {
-    // One source compiled into two targets is two build steps at one place
-    // in the tree. The map needs one leaf, and the cost of that file is the
-    // sum, so they merge and report how many steps went into them.
+    // one source in two targets is two steps at one place in the tree, so
+    // they merge to one leaf and report the step count
     const std::string text
         = "# ninja log v6\n"
           "0\t500\t0\tlibs/a/CMakeFiles/t1.dir/src/shared.cpp.obj\t1\n"

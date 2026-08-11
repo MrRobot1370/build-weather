@@ -43,7 +43,6 @@ ApplicationWindow {
         }
     }
 
-    // ---- dialogs --------------------------------------------------------
     FolderDialog {
         id: buildDirDialog
         title: "Select a build directory (must contain .ninja_log)"
@@ -93,12 +92,10 @@ ApplicationWindow {
     Shortcut { sequence: "Ctrl+B"; onActivated: liveButton.trigger() }
     Shortcut { sequence: "Escape"; onActivated: AppContext.replayExit() }
 
-    // ======================= layout =======================================
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
 
-        // ---- top bar ----------------------------------------------------
         Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 44
@@ -110,7 +107,7 @@ ApplicationWindow {
                 anchors.rightMargin: Style.space3
                 spacing: Style.space2
 
-                // Wordmark, with a live pip that beats while a build runs.
+                // wordmark, with a pip that beats while a build runs
                 Rectangle {
                     Layout.preferredWidth: 10
                     Layout.preferredHeight: 10
@@ -219,7 +216,6 @@ ApplicationWindow {
             }
         }
 
-        // ---- tabs --------------------------------------------------------
         Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 34
@@ -299,7 +295,6 @@ ApplicationWindow {
             }
         }
 
-        // ---- pages -------------------------------------------------------
         StackLayout {
             id: pages
             Layout.fillWidth: true
@@ -320,11 +315,10 @@ ApplicationWindow {
             OutputPage { id: outputPage }
         }
 
-        // ---- status strip -------------------------------------------------
         StatusStrip { Layout.fillWidth: true }
     }
 
-    // Transient message, bottom right, never modal.
+    // transient message, never modal
     Rectangle {
         id: toast
         anchors.right: parent.right

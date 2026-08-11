@@ -4,12 +4,10 @@ import QtQuick.Layouts
 import BW.UICore
 import BuildWeather
 
-// Load two builds and show per-file deltas. This is what turns the tool from
-// a toy into the thing you open after every dependency change.
 Item {
     id: page
 
-    /// Main.qml owns the file dialog; the pages only say what to write.
+    // Main.qml owns the file dialog; the pages only say what to write.
     signal exportRequested(string kind)
     signal baselineRequested()
 
@@ -50,7 +48,7 @@ Item {
             }
         }
 
-        // ---- headline numbers -------------------------------------------
+        // headline numbers
         Pane {
             Layout.fillWidth: true
             visible: AppContext.build.comparing

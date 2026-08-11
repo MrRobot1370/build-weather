@@ -165,8 +165,8 @@ void PathUtilsTests::classifierMapsIntoOneTree()
 
 void PathUtilsTests::keyJoinsAcrossDataSources()
 {
-    // The whole point of pathKey: ninja's relative, backslashed, differently
-    // cased spelling has to land on the same key as the trace's absolute one.
+    // ninja's relative, backslashed spelling and the trace's absolute one
+    // have to land on the same key
     const std::string fromNinja = joinPath(
         "F:/proj/build/ninja-x64",
         R"(..\..\libs\BW_Core\SRC\a.cpp)");

@@ -39,17 +39,17 @@ void insert(
         }
         node = &it->second;
     }
-    // BuildSnapshot::finalize() de-duplicates tree paths before we see them,
-    // so this only ever adds to a fresh node; summing is the safe fallback.
+    // BuildSnapshot::finalize() de-duplicates tree paths first, so this only
+    // ever adds to a fresh node; summing is the safe fallback
     node->value += value;
     if (node->leafIndex < 0) {
         node->leafIndex = leafIndex;
     }
 }
 
-/// `collapseThis` folds a chain of single-child directories starting at
-/// `source` into one display name. It is off for the synthetic root, which
-/// would otherwise swallow the name of the only top-level directory.
+/// `collapseThis` folds a chain of single-child directories into one display
+/// name. Off for the synthetic root, which would swallow the only top-level
+/// directory name.
 auto convert(
     const BuildNode &source,
     const std::string &parentPath,

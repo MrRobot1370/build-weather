@@ -1,27 +1,20 @@
 #pragma once
 
-// The map.
-//
-// One QQuickItem for the whole tree, never one QML Item per file: at several
-// thousand leaves that would be several thousand QObjects, bindings and
-// batches. Instead the layout is computed in plain C++ and turned into four
-// scene graph nodes:
+// One QQuickItem for the whole tree rather than one QML Item per file, which
+// at several thousand leaves would be as many QObjects and batches. The
+// layout is computed in plain C++ and turned into four scene graph nodes:
 //
 //   fills      triangles, vertex-coloured, one quad per cell
 //   borders    lines, directory outlines, rebuilt only on relayout
 //   highlight  lines, in-flight outlines plus hover and selection
 //   labels     one cached texture painted with QPainter
 //
-// Only `fills` and `highlight` are touched while the build animates, so a
-// frame during a live build costs a vertex buffer refill and nothing else.
+// Only fills and highlight are touched while the build animates.
 //
-// ZOOM: the layout is recomputed over a rectangle of `zoom` times the item
-// size and offset by the pan, rather than the finished picture being scaled up.
-// That costs a relayout per zoom step and is worth it: cells get genuinely
-// bigger, so labels re-render crisply instead of turning into blurry pixels,
-// more of them pass the legibility threshold, and directories that were too
-// small to recurse into open up. On a 1600-file project that is the difference
-// between a pretty picture and a usable one.
+// Zooming recomputes the layout over a rectangle of `zoom` times the item
+// size, offset by the pan, instead of scaling the finished picture: cells get
+// genuinely bigger, so labels stay crisp and directories that were too small
+// to recurse into open up.
 
 #include "BW/Treemap/squarify.h"
 #include "build_model.h"
@@ -50,19 +43,19 @@ class TreemapItem : public QQuickItem
     /// Drill-down root. Empty means the whole tree.
     Q_PROPERTY(QString focusPath READ focusPath WRITE setFocusPath
                    NOTIFY focusPathChanged)
-    /// Order::ByName keeps a file in the same place between builds, which is
-    /// what makes two runs comparable. Off trades that for tighter squares.
+    /// Order::ByName keeps a file in the same place between builds. Off
+    /// trades that for tighter squares.
     Q_PROPERTY(bool stableOrder READ stableOrder WRITE setStableOrder
                    NOTIFY stableOrderChanged)
     Q_PROPERTY(bool showLabels READ showLabels WRITE setShowLabels
                    NOTIFY showLabelsChanged)
-    /// Follows Style.dark. The map has its own palette because it is the one
-    /// surface whose colours carry data rather than decoration.
+    /// Follows Style.dark. The map keeps its own palette because its
+    /// colours carry data.
     Q_PROPERTY(bool darkTheme READ darkTheme WRITE setDarkTheme
                    NOTIFY darkThemeChanged)
 
-    /// 1.0 fits the whole tree; larger zooms in. Pan is in item pixels and is
-    /// clamped so the content cannot be dragged off screen.
+    /// 1.0 fits the whole tree. Pan is in item pixels, clamped so the
+    /// content cannot be dragged off screen.
     Q_PROPERTY(qreal zoom READ zoom WRITE setZoom NOTIFY viewChanged)
     Q_PROPERTY(qreal panX READ panX WRITE setPanX NOTIFY viewChanged)
     Q_PROPERTY(qreal panY READ panY WRITE setPanY NOTIFY viewChanged)
@@ -184,7 +177,6 @@ public:
     Q_INVOKABLE void fitToView();
 
     /// Multiplies the zoom, keeping the content under (`x`, `y`) in place.
-    /// Pass the item centre to zoom without a focus point.
     Q_INVOKABLE void zoomAt(qreal x, qreal y, qreal factor);
 
     /// Zooms about the centre of the view.
@@ -336,7 +328,7 @@ private:
     qreal m_panX { 0.0 };
     qreal m_panY { 0.0 };
     /// Press position and pan at press, so a drag is a delta rather than an
-    /// accumulation of rounding errors.
+    /// accumulation.
     QPointF m_pressPos;
     QPointF m_panAtPress;
     bool m_panning { false };
@@ -361,8 +353,8 @@ private:
 
     static constexpr qreal kMinZoom = 1.0;
     static constexpr qreal kMaxZoom = 64.0;
-    /// A press has to move this far before it counts as a pan rather than a
-    /// click, so selecting a small cell still works.
+    /// How far a press must move before it counts as a pan, so selecting a
+    /// small cell still works.
     static constexpr qreal kDragThreshold = 4.0;
 };
 

@@ -83,7 +83,7 @@ void TreemapTests::buildsHierarchyAndSumsValues()
     const Node *libs = findNode(root, "libs");
     QVERIFY(libs != nullptr);
     QCOMPARE(libs->children.size(), std::size_t { 2 });
-    // std::map ordering: BW_Build before BW_Core, deterministically.
+    // std::map ordering: BW_Build before BW_Core
     QCOMPARE(libs->children[0].name, std::string { "BW_Build" });
 
     const Node *core = findNode(root, "libs/BW_Core");
@@ -106,12 +106,12 @@ void TreemapTests::collapsesSingleChildDirectoryChains()
 
     const Node root = builder.build();
     QCOMPARE(root.children.size(), std::size_t { 1 });
-    // The whole one-child chain becomes one box.
+    // the whole one-child chain becomes one box
     QCOMPARE(
         root.children[0].name,
         std::string { "libs/BW_Core/include/BW/Core" });
     QCOMPARE(root.children[0].children.size(), std::size_t { 2 });
-    // Paths still address the real tree.
+    // paths still address the real tree
     QCOMPARE(
         root.children[0].children[0].path,
         std::string { "libs/BW_Core/include/BW/Core/a.h" });
@@ -119,7 +119,7 @@ void TreemapTests::collapsesSingleChildDirectoryChains()
 
 void TreemapTests::keepsRootIntact()
 {
-    // Collapsing must never swallow the top-level directory name.
+    // collapsing must not swallow the top-level directory name
     TreeBuilder builder;
     builder.add("libs/a/x.cpp", 1.0, 0);
     builder.add("libs/b/y.cpp", 1.0, 1);
@@ -174,10 +174,7 @@ void TreemapTests::layoutFillsBoundsWithoutOverlap()
 
 void TreemapTests::childrenStayInsideTheParentContentArea()
 {
-    // The invariant behind "a directory label must not sit on its children":
-    // every child rect lies inside the parent minus its reserved header and
-    // padding. If this holds and a renderer keeps the label inside
-    // headerHeight, an overlap is impossible.
+    // every child rect lies inside the parent minus its header and padding
     TreeBuilder builder;
     builder.setCollapseSingleChildDirectories(false);
     for (int i = 0; i < 60; ++i) {
@@ -195,7 +192,7 @@ void TreemapTests::childrenStayInsideTheParentContentArea()
     const auto items = layout(root, { 0.0, 0.0, 1200.0, 800.0 }, options);
     QVERIFY(!items.empty());
 
-    // Map every node path to its laid-out item so parents can be found.
+    // map every node path to its item so parents can be found
     QHash<QString, const LayoutItem *> byPath;
     for (const auto &item : items) {
         byPath.insert(QString::fromStdString(item.node->path), &item);
@@ -234,11 +231,8 @@ void TreemapTests::childrenStayInsideTheParentContentArea()
 
 void TreemapTests::headerIsReservedInFullOrNotAtAll()
 {
-    // A short directory drops its band rather than reserving a sliver of one.
-    // A renderer that assumed it always got the full band drew the label over
-    // the contents; one that reserved a sliver could only clip the label.
-    // Many small directories on a modest canvas, so plenty of boxes fall below
-    // the ratio and the rule has to bite in both directions.
+    // Many small directories on a modest canvas, so boxes fall on both sides
+    // of the ratio.
     TreeBuilder builder;
     builder.setCollapseSingleChildDirectories(false);
     for (int i = 0; i < 400; ++i) {
@@ -262,16 +256,13 @@ void TreemapTests::headerIsReservedInFullOrNotAtAll()
             QCOMPARE(item.headerHeight, 0.0);
             continue;
         }
-        // The whole point: a band is reserved in full or not at all. Anything
-        // in between cannot hold a label without clipping it.
+        // in full or not at all; anything between clips the label
         QVERIFY2(
             item.headerHeight == 0.0
                 || qFuzzyCompare(item.headerHeight, options.headerHeight),
             qPrintable(QString("partial band of %1 px reserved")
                            .arg(item.headerHeight)));
-        // And a band is never taken from a box too short to spare it, nor
-        // from one too narrow to draw a name in - a reservation nothing can
-        // be drawn into is just an empty strip above the contents.
+        // and never taken from a box too short or too narrow to use it
         if (item.headerHeight > 0.0) {
             QVERIFY(
                 item.rect.h
@@ -289,10 +280,8 @@ void TreemapTests::headerIsReservedInFullOrNotAtAll()
 
 void TreemapTests::mostDirectoriesKeepTheirLabelBand()
 {
-    // The other half of the rule above, and the one that actually shipped
-    // broken: tightened far enough, "drop the band on a short box" drops it on
-    // every box, and the map loses every directory name. On a normal tree at a
-    // normal window size the great majority of directories must keep theirs.
+    // Tightened far enough, the all-or-nothing rule drops the band on every
+    // box and the map loses every directory name.
     TreeBuilder builder;
     for (int i = 0; i < 900; ++i) {
         builder.add(
@@ -329,10 +318,8 @@ void TreemapTests::mostDirectoriesKeepTheirLabelBand()
 
 void TreemapTests::theCanvasReservesNoHeader()
 {
-    // Drilling into a directory makes it the layout root. The root is the
-    // canvas: no border, no label, and therefore no reserved band, so its
-    // children get the whole rectangle. Reporting a header here is what put
-    // the focused directory's name on top of its first child's.
+    // Drilling in makes that directory the layout root, and the root is the
+    // canvas: no band, so its children get the whole rectangle.
     TreeBuilder builder;
     builder.add("libs/a/x.cpp", 10.0, 0);
     builder.add("libs/b/y.cpp", 20.0, 1);
@@ -346,7 +333,7 @@ void TreemapTests::theCanvasReservesNoHeader()
     QCOMPARE(canvas.depth, 0);
     QCOMPARE(canvas.headerHeight, 0.0);
 
-    // With no band taken, the children together still cover the full height.
+    // with no band taken the children still cover the full height
     double top = bounds.h;
     for (const auto &item : items) {
         if (item.depth == 1) {
@@ -358,9 +345,8 @@ void TreemapTests::theCanvasReservesNoHeader()
 
 void TreemapTests::everyRectStaysInsideTheBounds()
 {
-    // Nothing may be laid out outside the canvas, at any zoom or pan. The
-    // zoomed view passes a rect offset by the pan, so negative origins and
-    // rects far larger than the view are the normal case, not an edge case.
+    // The zoomed view passes a rect offset by the pan, so negative origins
+    // and rects larger than the view are the normal case.
     TreeBuilder builder;
     for (int i = 0; i < 200; ++i) {
         builder.add(
@@ -418,8 +404,7 @@ void TreemapTests::layoutIsProportionalToValue()
 
 void TreemapTests::layoutIsStableWhenOnlyValuesChange()
 {
-    // The property the analysis view depends on: with Order::ByName a file
-    // keeps its position between builds and only its area changes.
+    // with Order::ByName a file keeps its position and only its area changes
     const auto buildTree = [](double bump) {
         TreeBuilder builder;
         builder.add("src/a.cpp", 100.0 + bump, 0);
@@ -433,7 +418,7 @@ void TreemapTests::layoutIsStableWhenOnlyValuesChange()
     options.order = Order::ByName;
     const Rect bounds { 0.0, 0.0, 500.0, 400.0 };
 
-    // The trees have to outlive the layouts: LayoutItem::node points at them.
+    // the trees must outlive the layouts: LayoutItem::node points at them
     const Node treeBefore = buildTree(0.0);
     const Node treeAfter = buildTree(250.0);
     const auto before = layout(treeBefore, bounds, options);
@@ -444,7 +429,7 @@ void TreemapTests::layoutIsStableWhenOnlyValuesChange()
         QCOMPARE(before[i].node->path, after[i].node->path);
     }
 
-    // Same relative ordering on screen: a stays left of (or above) b.
+    // a stays left of (or above) b
     const auto positionOf = [](const std::vector<LayoutItem> &items,
                                std::string_view path) {
         for (const auto &item : items) {
@@ -482,12 +467,12 @@ void TreemapTests::valueOrderingIsAvailableButNotDefault()
 
 void TreemapTests::worstRatioPrefersSquares()
 {
-    // A single square cell filling the side is the ideal, ratio 1.
+    // one square cell filling the side is the ideal, ratio 1
     QVERIFY(std::abs(worstAspectRatio(100.0, 100.0, 100.0, 10.0) - 1.0)
         < 1e-9);
-    // A long thin strip is worse than a square.
+    // a long thin strip is worse than a square
     QVERIFY(worstAspectRatio(10.0, 10.0, 10.0, 10.0) > 1.0);
-    // Degenerate input must not produce a "good" score.
+    // degenerate input must not score well
     QVERIFY(worstAspectRatio(0.0, 0.0, 0.0, 10.0)
         > std::numeric_limits<double>::max() / 2.0);
 }
@@ -506,7 +491,7 @@ void TreemapTests::handlesEmptyAndDegenerateInput()
     builder.add("b.cpp", 5.0, 1);
     root = builder.build();
     QVERIFY(!layout(root, { 0.0, 0.0, 100.0, 100.0 }).empty());
-    // Zero width means nothing to draw, not a crash.
+    // zero width means nothing to draw, not a crash
     QVERIFY(layout(root, { 0.0, 0.0, 0.0, 100.0 }).empty());
 }
 
@@ -531,8 +516,7 @@ void TreemapTests::scalesToSeveralThousandLeaves()
     const qint64 elapsed = timer.elapsed();
 
     QVERIFY(!items.empty());
-    // A full relayout has to fit comfortably inside a frame; the live view
-    // relayouts on every resize.
+    // a full relayout has to fit inside a frame
     QVERIFY2(
         elapsed < 100,
         qPrintable(QString("layout of %1 leaves took %2 ms")

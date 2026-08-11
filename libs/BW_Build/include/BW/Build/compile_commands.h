@@ -1,13 +1,8 @@
 #pragma once
 
-// `compile_commands.json` reader.
-//
-// This is the reliable way to join a ninja output path back to the source
-// file that produced it. Both reference projects enable
-// CMAKE_EXPORT_COMPILE_COMMANDS, so the database is usually sitting in the
-// build directory next to `.ninja_log`. When it is missing we fall back to
-// the CMake object-path convention, which is a guess (see
-// guessSourceFromObject).
+// The reliable way to join a ninja output path back to the source file that
+// produced it. When the database is missing, guessSourceFromObject() falls
+// back to the CMake object-path convention.
 
 #include "BW/Build/build_types.h"
 
@@ -55,8 +50,8 @@ public:
     auto sourceForOutput(std::string_view outputPath) const
         -> std::optional<std::string>;
 
-    /// True when the database contained "output" fields. Older CMake versions
-    /// omit them, in which case only sourceForObjectName() can work.
+    /// Older CMake versions omit "output" fields, in which case only the
+    /// object-name lookup can work.
     [[nodiscard]]
     auto hasOutputs() const -> bool
     {
@@ -70,15 +65,15 @@ private:
     bool m_hasOutputs { false };
 };
 
-/// Fallback for when there is no compile database.
-///
-/// CMake's Ninja generator writes object files as
-///   <target binary dir>/CMakeFiles/<target>.dir/<source path>.obj
-/// so stripping the `CMakeFiles/<target>.dir/` infix and the object suffix
-/// recovers a path relative to the source root - provided the build tree
-/// mirrors the source tree, which is the normal in-project `build/` layout.
-/// GUESS: returns an empty string when the shape does not match rather than
-/// inventing something.
+/**
+ * @brief Fallback for when there is no compile database.
+ *
+ * CMake's Ninja generator writes objects as
+ * <target binary dir>/CMakeFiles/<target>.dir/<source path>.obj, so
+ * stripping the infix and the suffix recovers a path relative to the source
+ * root, provided the build tree mirrors the source tree. Returns "" when the
+ * shape does not match rather than inventing something.
+ */
 [[nodiscard]]
 auto guessSourceFromObject(std::string_view objectPath) -> std::string;
 

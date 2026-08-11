@@ -22,20 +22,16 @@ namespace {
 
 constexpr int kSettleMs = 400; ///< matches Style.durSettle
 constexpr int kPulsePeriodMs = 900;
-/// Width thresholds only. The *height* a label needs is measured from the
-/// font rather than guessed at: a constant is how labels ended up clipped
-/// through the middle of the glyphs on short boxes.
+/// Width thresholds only; the height a label needs is measured from the font.
 constexpr double kMinDirectoryLabelWidth = 46.0;
 constexpr double kMinLeafLabelWidth = 34.0;
 constexpr double kRoomyLeafLabelWidth = 58.0;
 /// Breathing room above and below a directory name inside its band.
 constexpr double kBandPadding = 3.0;
 
-/// The font a directory name is drawn in, and the band height that font
-/// needs. The layout reserves the band and the painter draws into it, so both
-/// have to ask the same question of the same font. Asking two different ones -
-/// a round 14 px reserved, a measured ~14 px line wanted, 2 px of margin taken
-/// off in between - is what silently dropped every directory label.
+/// The font a directory name is drawn in, and the band height it needs. The
+/// layout reserves the band and the painter draws into it, so both have to
+/// measure the same font.
 auto directoryFont() -> QFont
 {
     QFont font = QGuiApplication::font();
@@ -46,8 +42,7 @@ auto directoryFont() -> QFont
 
 auto directoryBandHeight() -> double
 {
-    // Measured once. The application font does not change while the app runs,
-    // and this is on the relayout path.
+    // measured once: the application font does not change while the app runs
     static const double band = [] {
         const QFontMetricsF metrics { directoryFont() };
         return std::ceil(metrics.height()) + kBandPadding;
@@ -117,8 +112,7 @@ void appendOutline(
 }
 
 /// Two concentric one-pixel rings. The scene graph does not honour line
-/// widths above 1 on every graphics API (D3D11 among them), so a thick
-/// outline has to be drawn rather than asked for.
+/// widths above 1 on every graphics API, D3D11 among them.
 void appendDoubleOutline(
     QSGGeometry::ColoredPoint2D *&cursor,
     const Treemap::Rect &rect,
@@ -131,8 +125,8 @@ void appendDoubleOutline(
 constexpr int kOutlineVertices = 8;
 constexpr int kDoubleOutlineVertices = 2 * kOutlineVertices;
 
-/// Cells scrolled off the view still exist in the layout; there is no point
-/// pushing their vertices at the GPU. At zoom 64 this is most of them.
+/// Cells scrolled off the view still exist in the layout. At zoom 64 this is
+/// most of them.
 auto onScreen(const Treemap::Rect &r, double w, double h) -> bool
 {
     return r.x < w && r.y < h && r.x + r.w > 0.0 && r.y + r.h > 0.0;
@@ -157,8 +151,7 @@ TreemapItem::TreemapItem(QQuickItem *parent)
     setAcceptedMouseButtons(Qt::LeftButton | Qt::RightButton);
     setClip(true);
 
-    // One timer for every animation. It only runs while something is
-    // actually moving, so an idle post-mortem map costs zero frames.
+    // one timer for every animation, running only while something moves
     m_animationTimer.setInterval(16);
     connect(
         &m_animationTimer,
@@ -255,8 +248,7 @@ void TreemapItem::setDarkTheme(bool dark)
 
 void TreemapItem::clampPan()
 {
-    // Content is zoom times the view, so the pan can run from 0 to the
-    // overhang. At zoom 1 there is no overhang and the pan is pinned to 0.
+    // content is zoom times the view, so the pan runs from 0 to the overhang
     const qreal maxX = std::max(0.0, width() * (m_zoom - 1.0));
     const qreal maxY = std::max(0.0, height() * (m_zoom - 1.0));
     m_panX = std::clamp(m_panX, 0.0, maxX);
@@ -329,8 +321,8 @@ void TreemapItem::zoomAt(qreal x, qreal y, qreal factor)
         return;
     }
 
-    // Keep the content under (x, y) where it is: the content coordinate of
-    // that point scales with the zoom, so the pan has to absorb the rest.
+    // The content coordinate under (x, y) scales with the zoom, so the pan
+    // absorbs the rest and the point stays put.
     const qreal ratio = target / m_zoom;
     m_panX = (x + m_panX) * ratio - x;
     m_panY = (y + m_panY) * ratio - y;
@@ -375,9 +367,8 @@ void TreemapItem::onTreeChanged()
     m_labelsDirty = true;
     m_selectedLeaf = -1;
     clearHover();
-    // A new tree can arrive with leaves still settling (endLive rebuilds the
-    // model). Without this the clock never starts and the map freezes on
-    // whatever frame the change happened to produce.
+    // A new tree can arrive with leaves still settling, since endLive
+    // rebuilds the model. Without this the clock never starts.
     syncAnimationTimer();
     update();
 }
@@ -453,19 +444,16 @@ void TreemapItem::relayout()
     options.order = m_stableOrder ? Treemap::Order::ByName
                                   : Treemap::Order::ByValueDesc;
     options.padding = 2.0;
-    // With labels off the band is only there to make the nesting visible, so
-    // it shrinks to a hairline and stops caring how wide the box is: nothing
-    // has to fit in it. With labels on it must not be reserved where no name
-    // could be drawn, or it shows up as an empty strip above the contents.
+    // With labels off the band only marks the nesting, so it shrinks to a
+    // hairline and no width is required of the box.
     options.headerHeight = m_showLabels ? directoryBandHeight() : 3.0;
     options.minHeaderWidth = m_showLabels ? kMinDirectoryLabelWidth : 0.0;
     options.minRecurseSize = 26.0;
 
     QElapsedTimer timer;
     timer.start();
-    // The layout runs over the zoomed content rectangle, offset by the pan, so
-    // every rect it produces is already in view coordinates. Drawing, hit
-    // testing and labelling then need no transform at all.
+    // The layout runs over the zoomed content rectangle, offset by the pan,
+    // so every rect is already in view coordinates and needs no transform.
     Treemap::layout(
         *root,
         { -m_panX, -m_panY, width() * m_zoom, height() * m_zoom },
@@ -491,13 +479,10 @@ auto TreemapItem::colorFor(const Treemap::LayoutItem &item, qint64 now) const
         return palette.unknown;
     }
 
-    // A directory too small to recurse into is still drawn as a cell, and
-    // painting it neutral would hide cost: at fit zoom on a large project
-    // most boxes are collapsed directories, and a map that greys them out
-    // stops showing where the time goes. Colour it by the mean duration of
-    // the files inside, which is directly comparable to a leaf's colour and,
-    // unlike the total, does not make every directory look like the hottest
-    // file in it.
+    // A directory too small to recurse into is still a cell, and at fit zoom
+    // most boxes are these. Colour it by the mean duration of the files
+    // inside: comparable to a leaf colour, and unlike the total it does not
+    // make every directory look like the hottest file in it.
     if (item.node->leafIndex < 0) {
         if (item.node->leafCount <= 0) {
             return palette.unknown;
@@ -534,8 +519,7 @@ auto TreemapItem::colorFor(const Treemap::LayoutItem &item, qint64 now) const
     case LeafState::Pending :
         return palette.pending;
     case LeafState::Running : {
-        // Subtle pulse: the outline carries the "in flight" signal, the fill
-        // just breathes so a wall of active files reads as shimmer.
+        // the outline carries the in-flight signal, the fill just breathes
         const double phase = static_cast<double>(now % kPulsePeriodMs)
             / kPulsePeriodMs;
         const double amount
@@ -547,7 +531,7 @@ auto TreemapItem::colorFor(const Treemap::LayoutItem &item, qint64 now) const
         if (age >= kSettleMs) {
             return base;
         }
-        // Ease out over 400 ms from the completion flash to the final colour.
+        // ease out from the completion flash to the final colour
         const double t = static_cast<double>(age) / kSettleMs;
         const double eased = 1.0 - std::pow(1.0 - t, 3.0);
         return mix(kFlash, base, eased);
@@ -601,16 +585,13 @@ void TreemapItem::renderLabels(qint64 now)
 
     const QFont dirFont = directoryFont();
 
-    // Leaf labels get two sizes. A file name is the thing users are hunting
-    // for, so a cramped cell gets a smaller font rather than no name at all;
-    // below the smaller size there genuinely is no room and zooming is the
-    // answer, which is what the zoom hint in the corner tells them.
+    // Two sizes, so a cramped cell gets a smaller font rather than no name.
     QFont leafFont = QGuiApplication::font();
     leafFont.setPixelSize(11);
     QFont smallLeafFont = QGuiApplication::font();
     smallLeafFont.setPixelSize(9);
 
-    // The height each font needs for an unclipped line, including leading.
+    // height each font needs for an unclipped line, including leading
     const QFontMetricsF directoryMetrics { dirFont };
     const QFontMetricsF leafMetrics { leafFont };
     const QFontMetricsF smallLeafMetrics { smallLeafFont };
@@ -624,19 +605,16 @@ void TreemapItem::renderLabels(qint64 now)
         }
 
         if (!item.isCell) {
-            // Which directories are labelled is the layout's decision, made
-            // by reserving a band or not, and it reserves exactly the height
-            // this font needs. The painter's only job is to stay inside it -
-            // it must not second-guess the height, or the two disagree again.
+            // The layout decides which directories are labelled by reserving
+            // a band, and reserves exactly the height this font needs. The
+            // painter must not second-guess it.
             if (item.headerHeight <= 0.0) {
                 continue;
             }
-            // Panned or zoomed, a directory can start off the left edge and
-            // take its name with it, so the box filling your view is the one
-            // you cannot identify. The band spans the directory's full width
-            // and nothing else is drawn in it, so sliding the text along it
-            // is free. Vertically it must not move: below the band are the
-            // children, and that is the overlap this whole seam is about.
+            // A panned directory can start off the left edge and take its
+            // name with it. Nothing else is drawn in the band, so the text
+            // can slide along it; vertically it must not move, because below
+            // the band are the children.
             const double bx0 = std::max(rect.x, 0.0) + 4.0;
             const double bx1 = std::min(rect.x + rect.w, viewW) - 4.0;
             if (bx1 - bx0 < kMinDirectoryLabelWidth) {
@@ -656,15 +634,10 @@ void TreemapItem::renderLabels(qint64 now)
             continue;
         }
 
-        // Zoomed in, a cell can be larger than the viewport, and its top left
-        // corner is then off screen along with the label drawn there - so the
-        // one cell filling your view is the one you cannot identify. Label the
-        // visible part of the cell instead.
-        //
-        // Only leaves do this. A directory's band is structural, sitting in
-        // space reserved from its own children, and sliding it down the screen
-        // would put it on top of them; the breadcrumb names the directory you
-        // are inside.
+        // A cell larger than the viewport has its top left corner off screen
+        // along with the label, so label the visible part instead. Leaves
+        // only: a directory band is reserved from its own children, so moving
+        // it down would put it on top of them.
         const double vx0 = std::max(rect.x, 0.0);
         const double vy0 = std::max(rect.y, 0.0);
         const double vx1 = std::min(rect.x + rect.w, viewW);
@@ -682,7 +655,7 @@ void TreemapItem::renderLabels(qint64 now)
         }
         const QFontMetricsF &metrics = roomy ? leafMetrics : smallLeafMetrics;
         painter.setFont(roomy ? leafFont : smallLeafFont);
-        // Contrast against the cell, not against the theme; see labelInkFor.
+        // contrast against the cell, not the theme; see labelInkFor
         painter.setPen(labelInkFor(colorFor(item, now)));
         const QRectF box {
             vx0 + 3.0,
@@ -806,8 +779,7 @@ auto TreemapItem::updatePaintNode(QSGNode *old, UpdatePaintNodeData *)
             || !onScreen(item.rect, viewW, viewH)) {
             continue;
         }
-        // Shallower directories get a stronger frame, so the nesting reads
-        // as a hierarchy rather than as noise.
+        // shallower directories get a stronger frame
         const int alpha = std::max(40, 190 - 34 * (item.depth - 1));
         QColor outline = palette.directoryOutline;
         outline.setAlpha(alpha);
@@ -868,8 +840,8 @@ auto TreemapItem::updatePaintNode(QSGNode *old, UpdatePaintNodeData *)
                     return;
                 }
             }
-            // Nothing matched: emit a degenerate outline so the vertex
-            // count still lines up with what we allocated.
+            // nothing matched: emit a degenerate outline so the vertex count
+            // still matches what was allocated
             appendDoubleOutline(cursor, Treemap::Rect {}, QColor { 0, 0, 0, 0 });
         };
 
@@ -893,9 +865,8 @@ auto TreemapItem::updatePaintNode(QSGNode *old, UpdatePaintNodeData *)
     if (m_labelsDirty) {
         renderLabels(now);
         if (window() != nullptr) {
-            // The label layer is drawn on top of the cells and is almost
-            // entirely transparent. Marking it opaque paints the whole map
-            // black.
+            // the layer is almost entirely transparent; marking it opaque
+            // paints the whole map black
             labels->setTexture(window()->createTextureFromImage(
                 m_labelImage,
                 QQuickWindow::TextureHasAlphaChannel));
@@ -904,9 +875,9 @@ auto TreemapItem::updatePaintNode(QSGNode *old, UpdatePaintNodeData *)
     labels->setRect(0.0, 0.0, width(), height());
     labels->markDirty(QSGNode::DirtyMaterial);
 
-    // NOTE: the animation timer is NOT touched here. This function runs on
-    // the render thread, and QTimer must be started and stopped from the
-    // thread that owns it; syncAnimationTimer() does it from the GUI thread.
+    // NOTE: the animation timer is not touched here. This runs on the render
+    // thread, and a QTimer must be started and stopped from its own thread;
+    // syncAnimationTimer() does it from the GUI thread.
     return root;
 }
 
@@ -915,8 +886,7 @@ auto TreemapItem::updatePaintNode(QSGNode *old, UpdatePaintNodeData *)
 auto TreemapItem::cellAt(const QPointF &position) const
     -> const Treemap::LayoutItem *
 {
-    // Children come after their parent in draw order, so the last match wins
-    // and a leaf beats the directory it sits inside.
+    // children come after their parent in draw order, so the last match wins
     const Treemap::LayoutItem *hit = nullptr;
     for (const auto &item : m_layout) {
         if (item.rect.contains(position.x(), position.y())) {
@@ -965,15 +935,10 @@ void TreemapItem::updateHover(const QPointF &position)
                       .deltaMs;
         }
         else {
-            // A directory shows the cost of everything under it, which is
-            // the number you actually want when scanning for a hot module.
-            //
             // Summed from the leaves rather than taken from Node::value,
-            // because that value is the *area* weight and carries a minimum
-            // per leaf so a zero-duration file stays visible. Over a
-            // directory of hundreds of cheap files those floors add up, and
-            // a tooltip that claims to report a total has to report the
-            // total.
+            // which is the area weight and carries a per-leaf minimum so a
+            // zero-duration file stays visible. Those floors add up over a
+            // directory of hundreds of cheap files.
             qint64 total = 0;
             Treemap::walk(*item->node, [&](const Treemap::Node &node, int) {
                 if (node.leafIndex < 0) {
@@ -1028,8 +993,7 @@ void TreemapItem::mousePressEvent(QMouseEvent *event)
         return;
     }
 
-    // A press is ambiguous until it either moves (pan) or does not (select),
-    // so nothing is decided here beyond remembering where it started.
+    // a press is ambiguous until it either moves (pan) or does not (select)
     m_pressPos = event->position();
     m_panAtPress = QPointF { m_panX, m_panY };
     m_pressWasOnCell = cellAt(m_pressPos) != nullptr;
@@ -1052,8 +1016,7 @@ void TreemapItem::mouseMoveEvent(QMouseEvent *event)
     }
 
     // Dragging moves the content with the cursor, so the pan goes the other
-    // way. Computed from the press position rather than accumulated, so a
-    // slow drag cannot drift.
+    // way. Computed from the press position so a slow drag cannot drift.
     m_panX = m_panAtPress.x() - delta.x();
     m_panY = m_panAtPress.y() - delta.y();
     clampPan();
@@ -1108,8 +1071,7 @@ void TreemapItem::wheelEvent(QWheelEvent *event)
         return;
     }
 
-    // One notch is 120 eighths of a degree. 1.25 per notch is small enough to
-    // feel continuous and large enough that a few flicks cross the range.
+    // one notch is 120 eighths of a degree
     const qreal notches = static_cast<qreal>(amount) / 120.0;
     zoomAt(
         event->position().x(),
@@ -1125,7 +1087,7 @@ void TreemapItem::mouseDoubleClickEvent(QMouseEvent *event)
         event->ignore();
         return;
     }
-    // Double click drills into whatever directory contains the cursor.
+    // drills into whatever directory contains the cursor
     const Treemap::Node *node = item->node;
     QString target = QString::fromStdString(node->path);
     if (item->isCell && node->leafIndex >= 0) {

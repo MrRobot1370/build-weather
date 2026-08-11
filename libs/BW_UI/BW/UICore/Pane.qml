@@ -1,10 +1,8 @@
 import QtQuick
 import BW.UICore
 
-// A bordered surface used to group readouts and form rows. Consumers put a
-// single Layout inside with `anchors.fill: parent`; the Pane derives its
-// implicit size from that child so it works inside a parent Layout without a
-// hard-coded preferredHeight.
+// Implicit size comes from the single child, so put one Layout inside with
+// anchors.fill: parent.
 Rectangle {
     id: root
     color: Style.bgPanel

@@ -1,14 +1,9 @@
 #pragma once
 
-// A minimal, allocation-light JSON pull parser.
-//
-// A `-ftime-trace` set is hundreds of megabytes of JSON and we only ever want
-// a handful of fields out of each event, so building a DOM is the wrong
-// shape. This reader walks the text once, lets the caller pick the members it
-// cares about and skip the rest, and never copies anything it was not asked
-// for.
-//
-// Private to BW_Build; not installed.
+// A minimal, allocation-light JSON pull parser. A -ftime-trace set is
+// hundreds of megabytes and only a handful of fields per event are wanted, so
+// a DOM is the wrong shape: this walks the text once and copies nothing it
+// was not asked for. Private to BW_Build, not installed.
 
 #include <charconv>
 #include <cstdint>

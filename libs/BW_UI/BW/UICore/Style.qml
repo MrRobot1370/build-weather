@@ -2,15 +2,7 @@ pragma Singleton
 import QtQuick
 
 QtObject {
-    // ------------------------------------------------------------------
-    //  Build Weather design tokens.
-    //  Single source of truth for colour, spacing and type. Dark-first:
-    //  the map is the bright object on screen, so the chrome around it
-    //  stays near-black and desaturated and never competes with the heat
-    //  ramp. Light mode exists for screenshots in documents.
-    // ------------------------------------------------------------------
-
-    // 0 = follow system, 1 = light, 2 = dark. Persisted by Main.qml.
+    // 0 = follow system, 1 = light, 2 = dark
     property int themeMode: 2
 
     readonly property bool systemDark: {
@@ -22,7 +14,7 @@ QtObject {
                                : themeMode === 2 ? true
                                : systemDark
 
-    // ---- Surfaces ----------------------------------------------------
+    // Surfaces
     readonly property color bg0:        dark ? "#0A0C10" : "#F3F5F9"   // window
     readonly property color bg1:        dark ? "#12161D" : "#FFFFFF"   // panes, dialogs
     readonly property color bg2:        dark ? "#171C24" : "#EDF0F5"   // raised controls
@@ -31,10 +23,7 @@ QtObject {
     readonly property color bgRail:     dark ? "#0D1016" : "#E9EDF4"   // tab rail, status bar
     readonly property color bgPanel:    dark ? "#0F131A" : "#FAFBFD"   // side panels
     readonly property color bgWell:     dark ? "#0B0E13" : "#E8ECF3"   // input wells, readouts
-    // The map backdrop follows the theme like everything else. An earlier
-    // version kept it dark in light mode so one ramp could serve both; that
-    // just looked like the map had failed to notice the theme change.
-    readonly property color bgMap:     dark ? "#06080B" : "#E7E9ED"
+    readonly property color bgMap:      dark ? "#06080B" : "#E7E9ED"   // map backdrop
 
     readonly property color border:       dark ? "#222933" : "#D3DAE5"
     readonly property color borderSubtle: dark ? "#1A2028" : "#E1E6EE"
@@ -43,7 +32,7 @@ QtObject {
     readonly property color overlay:      dark ? Qt.rgba(0.02, 0.03, 0.04, 0.82)
                                               : Qt.rgba(0.22, 0.25, 0.30, 0.55)
 
-    // ---- Text --------------------------------------------------------
+    // Text
     readonly property color textPrimary:   dark ? "#E8EDF4" : "#18212E"
     readonly property color textBody:      dark ? "#C2CBD8" : "#394454"
     readonly property color textSecondary: dark ? "#98A3B2" : "#556078"
@@ -51,8 +40,8 @@ QtObject {
     readonly property color textFaint:     dark ? "#5A6473" : "#A3ACBB"
     readonly property color textInverse:   dark ? "#0A0C10" : "#FFFFFF"
 
-    // ---- Brand and semantic -------------------------------------------
-    readonly property color accent:      dark ? "#F2A03D" : "#C4700A"   // ember, matches the ramp
+    // Brand and semantic
+    readonly property color accent:      dark ? "#F2A03D" : "#C4700A"
     readonly property color accentHover: dark ? "#FFB65C" : "#DA8214"
     readonly property color accentDown:  dark ? "#D2842A" : "#A55C05"
     readonly property color accentText:  "#12100C"
@@ -64,22 +53,12 @@ QtObject {
     readonly property color danger:  dark ? "#E2545B" : "#C4323A"
     readonly property color info:    dark ? "#5AB6DE" : "#0E7FA8"
 
-    // Regression / improvement in the comparison view.
+    // regression / improvement in the comparison view
     readonly property color worse:  danger
     readonly property color better: success
 
-    // ---- Heat ramp -----------------------------------------------------
-    // Single hue family, near-monotonic in perceived lightness. Not a
-    // rainbow: rank has to be readable from brightness alone, including in
-    // a greyscale screenshot.
-    //
-    // Two ramps, because there are two backgrounds. Dark theme: cold is
-    // near-black, hot is pale, so expensive files glow. Light theme runs the
-    // other way, pale for cheap and deep red for expensive, because on a
-    // light page a pale "hot" colour would be the least visible thing on
-    // screen. In both cases expensive is the value furthest from the
-    // background. Mirrored exactly in colour_ramp.h, which is what the scene
-    // graph samples; these exist so legends cannot drift from the map.
+    // Heat ramp. Mirrored in color_ramp.h, which is what the scene graph
+    // samples; these exist so the legend cannot drift from the map.
     readonly property var heatStopsDark: [
         "#10141C", "#241A2E", "#46203C", "#6E2436", "#9B3527",
         "#C55416", "#E27B0A", "#F3A81E", "#FBD35C", "#FDF3B8"
@@ -90,8 +69,6 @@ QtObject {
     ]
     readonly property var heatStops: dark ? heatStopsDark : heatStopsLight
 
-    // The stops are already spaced so a plain component-wise blend between
-    // neighbours stays smooth; colour_ramp.h does exactly the same blend.
     function heat(t) {
         var clamped = t < 0 ? 0 : (t > 1 ? 1 : t)
         var scaled = clamped * (heatStops.length - 1)
@@ -106,7 +83,7 @@ QtObject {
                        a.b + (b.b - a.b) * f, 1.0)
     }
 
-    // ---- Spacing and sizing -------------------------------------------
+    // Spacing and sizing
     readonly property int space0: 4
     readonly property int space1: 8
     readonly property int space2: 12
@@ -118,7 +95,7 @@ QtObject {
     readonly property int radiusM: 8
     readonly property int radiusL: 12
 
-    // ---- Type ----------------------------------------------------------
+    // Type
     readonly property string fontFamily: "Segoe UI"
     readonly property string fontFamilyMono: "Cascadia Mono"
     readonly property int fontSizeXXS: 10
@@ -130,11 +107,9 @@ QtObject {
     readonly property int fontSizeXXL: 24
     readonly property real eyebrowSpacing: 0.9
 
-    // ---- Animation -------------------------------------------------------
+    // Animation
     readonly property int durFast: 120
     readonly property int durMed:  200
     readonly property int durSlow: 320
-    // The settle from "in flight" to the final colour. Part of the spec:
-    // slow enough to read as weather, short enough not to lag the build.
-    readonly property int durSettle: 400
+    readonly property int durSettle: 400   // in-flight to final colour
 }
