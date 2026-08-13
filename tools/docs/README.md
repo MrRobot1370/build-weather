@@ -69,5 +69,27 @@ slightly behind two later changes to the map:
   band, that the current build would leave off entirely: a label band is now
   reserved only where a name actually fits, in full or not at all.
 
-Neither changes what the figures illustrate. Re-run the capture on a
+None of this changes what the figures illustrate. Re-run the capture on a
 full-resolution display to refresh them.
+
+## Absolute paths in the figures
+
+Build Weather puts the loaded build directory in its title bar and in the
+toolbar, so whatever machine the capture runs on ends up printed across the
+top of every full-window figure. The checked-in figures were edited after
+capture to read a neutral path instead:
+
+| Figure | Now reads |
+| --- | --- |
+| `01-overview`, `08-live` | `C:/projects/build-weather/build/ninja-x64` |
+| `10-large-project` | `C:/projects/large-app/build/x64-relWithDebInfo` |
+| `06-analysis-headers`, row 17 | `C:/projects/build-weather/apps/...` |
+| `07-compare` | `C:/proj/baselines/before-change.ninja_log` |
+
+No callout refers to any of those strings. The replacements were drawn in the
+fonts the originals were measured to use, Segoe UI 14.25 px for the title bar
+and Consolas 15.25 px for everything monospaced.
+
+**Capture from a presentable path and this step disappears.** Put the project
+somewhere like `C:\projects\build-weather` before running `capture.ps1`, and
+load the compare baseline from a directory you are happy to publish.

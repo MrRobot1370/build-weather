@@ -26,8 +26,6 @@ ApplicationWindow {
         category: "ui"
         property int themeMode: 2
         property string lastBuildDirectory: ""
-        property bool stableOrder: true
-        property bool showLabels: true
     }
     Component.onCompleted: {
         Style.themeMode = uiSettings.themeMode

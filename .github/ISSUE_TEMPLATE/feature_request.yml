@@ -1,0 +1,38 @@
+name: Feature request
+description: Suggest something Build Weather should do
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What question can you not answer today
+      description: >
+        Describe the problem rather than the solution. "I cannot tell which of
+        two headers to cut first" leads somewhere better than "add a sort
+        button".
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you have in mind
+    validations:
+      required: true
+
+  - type: textarea
+    id: data
+    attributes:
+      label: What data would it need
+      description: >
+        Build Weather reads `.ninja_log`, `compile_commands.json` and clang
+        `-ftime-trace` documents. If your idea needs something else, say what
+        and where it comes from; that is usually the deciding factor.
+
+  - type: checkboxes
+    id: checked
+    attributes:
+      label: Before submitting
+      options:
+        - label: I have read the "Not implemented" section of the README
+          required: true

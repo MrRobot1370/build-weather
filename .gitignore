@@ -9,10 +9,15 @@
 
 .vs/
 .vscode/
+.idea/
 .cache/
 *.user
 CMakeUserPresets.json
 compile_commands.json
+
+# Local editor and assistant configuration; personal, not part of the project.
+.claude/
+CLAUDE.md
 
 # Intermediate HTML from tools/build-docs.py; the .md and .pdf are tracked.
 docs/_user_guide.html

@@ -200,4 +200,39 @@ auto guessSourceFromObject(std::string_view objectPath) -> std::string
     return Core::normalizePath(prefix + decoded);
 }
 
+auto inferSourceRoot(
+    const CompileCommands &commands,
+    std::string_view buildRoot) -> std::string
+{
+    const std::string build = Core::normalizePath(buildRoot);
+
+    std::string root;
+    for (const auto &entry : commands.entries()) {
+        if (entry.file.empty()) {
+            continue;
+        }
+        if (!build.empty() && Core::relativeTo(entry.file, build)) {
+            continue; // generated, so it says nothing about the source root
+        }
+        if (root.empty()) {
+            root = Core::parentPath(entry.file);
+            continue;
+        }
+        // relativeTo, not a string prefix: comparing raw prefixes would let a
+        // root of ".../src" claim ".../src2/a.cpp" and stop the walk one
+        // directory too deep, which then reads as [external] on the map.
+        while (!root.empty() && !Core::relativeTo(entry.file, root)) {
+            const std::string parent = Core::parentPath(root);
+            if (parent == root) {
+                return {};
+            }
+            root = parent;
+        }
+        if (root.empty()) {
+            return {};
+        }
+    }
+    return root;
+}
+
 }

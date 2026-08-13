@@ -7,6 +7,9 @@
 //
 // Same libraries as the GUI, no Qt, so it doubles as the post-build sanity
 // check: if this prints sensible numbers the parsers are wired up correctly.
+//
+// Exit codes: 0 success, 1 an input could not be read or an output written,
+// 2 the command line itself was wrong. CI scripts branch on these.
 
 #include "BW/Build/build_snapshot.h"
 #include "BW/Build/compile_commands.h"
@@ -16,6 +19,7 @@
 #include "BW/Core/path_utils.h"
 
 #include <algorithm>
+#include <charconv>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -37,6 +41,9 @@ struct Args
     std::string csvOut;
     int top { 20 };
     bool help { false };
+    bool version { false };
+    /// Set when a flag was misused; the message is already on stderr.
+    bool invalid { false };
 };
 
 auto parseArgs(int argc, char **argv) -> Args
@@ -44,29 +51,59 @@ auto parseArgs(int argc, char **argv) -> Args
     Args args;
     for (int i = 1; i < argc; ++i) {
         const std::string arg { argv[i] };
-        const auto next = [&]() -> std::string {
-            return i + 1 < argc ? std::string { argv[++i] } : std::string {};
+        // A flag whose value is missing must not silently become an empty
+        // string: --csv with nothing after it would then write no file and
+        // still exit 0, which a CI script reads as success.
+        const auto next = [&](std::string &out) -> bool {
+            if (i + 1 >= argc) {
+                std::cerr << arg << " needs a value\n";
+                args.invalid = true;
+                return false;
+            }
+            out = argv[++i];
+            return true;
         };
         if (arg == "-h" || arg == "--help") {
             args.help = true;
         }
+        else if (arg == "-v" || arg == "--version") {
+            args.version = true;
+        }
         else if (arg == "--source") {
-            args.sourceDir = next();
+            next(args.sourceDir);
         }
         else if (arg == "--build") {
-            args.buildDir = next();
+            next(args.buildDir);
         }
         else if (arg == "--traces") {
-            args.tracesDir = next();
+            next(args.tracesDir);
         }
         else if (arg == "--json") {
-            args.jsonOut = next();
+            next(args.jsonOut);
         }
         else if (arg == "--csv") {
-            args.csvOut = next();
+            next(args.csvOut);
         }
         else if (arg == "--top") {
-            args.top = std::max(1, std::atoi(next().c_str()));
+            std::string value;
+            if (next(value)) {
+                const char *first = value.data();
+                const char *last = value.data() + value.size();
+                int parsed = 0;
+                if (std::from_chars(first, last, parsed).ptr != last
+                    || parsed < 1) {
+                    std::cerr << "--top needs a positive whole number, got '"
+                              << value << "'\n";
+                    args.invalid = true;
+                }
+                else {
+                    args.top = parsed;
+                }
+            }
+        }
+        else if (!arg.empty() && arg.front() == '-') {
+            std::cerr << "unknown option: " << arg << "\n";
+            args.invalid = true;
         }
         else if (args.command.empty()) {
             args.command = arg;
@@ -78,14 +115,25 @@ auto parseArgs(int argc, char **argv) -> Args
     return args;
 }
 
-void usage()
+// Requested help goes to stdout, usage printed because the command line was
+// wrong goes to stderr, so `bw_cli --help > usage.txt` works and a failing CI
+// step does not have its diagnostic swallowed by a redirect.
+void usage(std::ostream &to)
 {
-    std::cout
-        << "bw_cli - headless Build Weather\n\n"
+    to
+        << "bw_cli " << BW_VERSION << " - headless Build Weather\n\n"
         << "  bw_cli analyze <build-dir> [--source <dir>] [--traces <dir>]\n"
         << "                 [--json <file>] [--csv <file>] [--top N]\n"
         << "  bw_cli compare <baseline.ninja_log> <current.ninja_log>\n"
-        << "                 [--source <dir>] [--build <dir>] [--csv <f>]\n";
+        << "                 [--source <dir>] [--build <dir>] [--csv <f>]\n\n"
+        << "  --source <dir>  source root, when it cannot be inferred\n"
+        << "  --build <dir>   build root, for resolving relative log paths\n"
+        << "  --traces <dir>  directory to scan for -ftime-trace documents\n"
+        << "  --json <file>   write the full analysis as JSON\n"
+        << "  --csv <file>    write every step (analyze) or delta (compare)\n"
+        << "  --top N         rows to print and to put in --json (default 20;\n"
+        << "                  --csv is never truncated)\n"
+        << "  -v, --version   print the version and exit\n";
 }
 
 auto writeFile(const std::string &path, const std::string &content) -> bool
@@ -99,27 +147,35 @@ auto writeFile(const std::string &path, const std::string &content) -> bool
     return true;
 }
 
+// Deltas are negative, so the magnitude picks the unit and the sign is put
+// back afterwards; comparing on the raw value left every regression that got
+// faster than a minute printed as a raw millisecond count.
 auto formatMs(Build::Millis ms) -> std::string
 {
-    if (ms >= 60000) {
-        const long long minutes = ms / 60000;
-        const double seconds = static_cast<double>(ms % 60000) / 1000.0;
+    const char *sign = ms < 0 ? "-" : "";
+    const auto magnitude = ms < 0 ? -ms : ms;
+
+    if (magnitude >= 60000) {
+        const long long minutes = magnitude / 60000;
+        const double seconds = static_cast<double>(magnitude % 60000) / 1000.0;
         char buffer[64] {};
         std::snprintf(
             buffer,
             sizeof buffer,
-            "%lldm %.1fs",
+            "%s%lldm %.1fs",
+            sign,
             minutes,
             seconds);
         return buffer;
     }
-    if (ms >= 1000) {
+    if (magnitude >= 1000) {
         char buffer[32] {};
         std::snprintf(
             buffer,
             sizeof buffer,
-            "%.2fs",
-            static_cast<double>(ms) / 1000.0);
+            "%s%.2fs",
+            sign,
+            static_cast<double>(magnitude) / 1000.0);
         return buffer;
     }
     return std::to_string(ms) + "ms";
@@ -128,20 +184,26 @@ auto formatMs(Build::Millis ms) -> std::string
 auto runAnalyze(const Args &args) -> int
 {
     if (args.positional.empty() && args.buildDir.empty()) {
-        usage();
+        usage(std::cerr);
         return 2;
     }
     const std::string buildDir = Core::normalizePath(
         args.buildDir.empty() ? args.positional.front() : args.buildDir);
-    const std::string sourceDir = args.sourceDir.empty()
-        ? Core::normalizePath(buildDir + "/../..")
-        : Core::normalizePath(args.sourceDir);
 
     std::string error;
     const std::string logPath = Core::joinPath(buildDir, ".ninja_log");
     const auto log = Build::readNinjaLog(logPath, error);
     if (!log) {
         std::cerr << error << "\n";
+        // A log copied aside keeps the extension but not the exact name, so
+        // both spellings are worth catching; this is the likeliest mistake.
+        if (Core::fileName(buildDir) == ".ninja_log"
+            || Core::extension(buildDir) == ".ninja_log") {
+            std::cerr << "analyze takes the build directory, not the log "
+                         "itself. Pass "
+                      << Core::parentPath(buildDir)
+                      << ", or use 'compare' if you meant to diff two logs.\n";
+        }
         return 1;
     }
     for (const auto &diagnostic : log->diagnostics) {
@@ -151,6 +213,18 @@ auto runAnalyze(const Args &args) -> int
     Build::CompileCommands commands;
     std::string commandsError;
     const bool haveCommands = commands.load(buildDir, commandsError);
+
+    // The compile database names every source file, so their deepest common
+    // directory is the source root. Only when there is no database does this
+    // fall back to the <source>/build/<preset> convention, which is wrong for
+    // a build directory that sits directly under the source root.
+    std::string sourceDir = Core::normalizePath(args.sourceDir);
+    if (sourceDir.empty() && haveCommands) {
+        sourceDir = Build::inferSourceRoot(commands, buildDir);
+    }
+    if (sourceDir.empty()) {
+        sourceDir = Core::normalizePath(buildDir + "/../..");
+    }
 
     Build::SnapshotOptions options;
     options.classifier.setSourceRoot(sourceDir);
@@ -178,7 +252,17 @@ auto runAnalyze(const Args &args) -> int
               << "total CPU time  : " << formatMs(stats.totalCpuMs) << "\n"
               << "wall time       : " << formatMs(stats.wallMs) << "\n"
               << "peak parallelism: " << stats.peakParallelism << "\n"
-              << "median step     : " << formatMs(stats.medianMs) << "\n\n";
+              << "median step     : " << formatMs(stats.medianMs) << "\n";
+
+    // Timestamps are relative to the start of their own ninja invocation, so
+    // across several of them the durations stay exact but the wall time and
+    // the parallelism come from overlaying separate clocks.
+    if (log->spansMultipleBuilds()) {
+        std::cout << "\nnote: this log covers several ninja invocations. Each "
+                     "duration is still\n      exact, but wall time and peak "
+                     "parallelism mix clocks and mean little.\n";
+    }
+    std::cout << "\n";
 
     std::vector<const Build::TargetInfo *> byRank;
     for (const auto &target : snapshot.targets()) {
@@ -205,6 +289,11 @@ auto runAnalyze(const Args &args) -> int
     const std::string tracesDir
         = args.tracesDir.empty() ? buildDir : args.tracesDir;
     traces = Build::loadTraceDirectory(tracesDir);
+    if (traces.units().empty() && !args.tracesDir.empty()) {
+        std::cerr << "\nno -ftime-trace documents under " << tracesDir
+                  << "; the header and template rankings need a clang-cl "
+                     "build compiled with /clang:-ftime-trace\n";
+    }
     if (!traces.units().empty()) {
         std::cout << "\ntime-trace: " << traces.units().size()
                   << " translation units, frontend "
@@ -250,7 +339,7 @@ auto runAnalyze(const Args &args) -> int
 auto runCompare(const Args &args) -> int
 {
     if (args.positional.size() < 1) {
-        usage();
+        usage(std::cerr);
         return 2;
     }
     const std::string baselinePath
@@ -260,7 +349,7 @@ auto runCompare(const Args &args) -> int
     const std::string currentPath
         = args.positional.size() > 1 ? args.positional[1] : std::string {};
     if (baselinePath.empty() || currentPath.empty()) {
-        usage();
+        usage(std::cerr);
         return 2;
     }
 
@@ -315,9 +404,17 @@ auto runCompare(const Args &args) -> int
 auto main(int argc, char **argv) -> int
 {
     const Args args = parseArgs(argc, argv);
-    if (args.help || args.command.empty()) {
-        usage();
-        return args.help ? 0 : 2;
+    if (args.version) {
+        std::cout << "bw_cli " << BW_VERSION << "\n";
+        return 0;
+    }
+    if (args.help) {
+        usage(std::cout);
+        return 0;
+    }
+    if (args.invalid || args.command.empty()) {
+        usage(std::cerr);
+        return 2;
     }
     if (args.command == "analyze") {
         return runAnalyze(args);
@@ -326,6 +423,6 @@ auto main(int argc, char **argv) -> int
         return runCompare(args);
     }
     std::cerr << "unknown command: " << args.command << "\n";
-    usage();
+    usage(std::cerr);
     return 2;
 }

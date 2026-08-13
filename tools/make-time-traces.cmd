@@ -9,11 +9,15 @@ rem  that data; point Build Weather's "Load -ftime-trace" at
 rem  build\clangcl-x64 afterwards.
 rem
 rem  Usage: tools\make-time-traces.cmd [Release|Debug]  (default Release)
+rem
+rem  Set BW_QT_PREFIX to a Qt msvc directory to build against a different Qt.
 rem ---------------------------------------------------------------------------
 setlocal
 
 set "CONFIG=%~1"
 if "%CONFIG%"=="" set "CONFIG=Release"
+
+if not defined BW_QT_PREFIX set "BW_QT_PREFIX=C:/Qt/6.6.2/msvc2019_64"
 
 set "VS_ROOT=C:\Program Files\Microsoft Visual Studio\2022"
 for %%E in (Enterprise Professional Community BuildTools) do (
@@ -33,7 +37,7 @@ rem -ftime-trace has to reach the clang driver, hence the /clang: prefix.
 rem CMAKE_CXX_FLAGS *replaces* the default flags rather than adding to them,
 rem so /EHsc has to be repeated here or every try block fails to compile.
 cmake -S . -B build\clangcl-x64 -G "Visual Studio 17 2022" -A x64 -T ClangCL ^
-    -DCMAKE_PREFIX_PATH=C:/Qt/6.6.2/msvc2019_64 ^
+    -DCMAKE_PREFIX_PATH=%BW_QT_PREFIX% ^
     -DCMAKE_CXX_FLAGS="/DWIN32 /D_WINDOWS /EHsc /clang:-ftime-trace" ^
     -DBW_BUILD_TESTS=OFF || (popd & exit /b 1)
 

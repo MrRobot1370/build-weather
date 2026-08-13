@@ -14,3 +14,24 @@
 # A .ninja_log is a byte-exact reproduction of ninja's own output (LF, tabs);
 # never let git rewrite it.
 tests/data/*.ninja_log -text
+
+# GitHub Actions reads these on Linux runners; keep them LF whatever the
+# cloning machine's core.autocrlf says.
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Binary, so never eligible for line-ending conversion. Without a rule this
+# rests on git's content heuristics, and a mangled PNG is silent.
+*.png binary
+*.jpg binary
+*.pdf binary
+*.ico binary
+
+# Documentation figures and the generated PDF are large and not reviewable as
+# text; keep them out of diffs.
+docs/images/*.png -diff
+docs/USER_GUIDE.pdf -diff
+
+# Not part of what a consumer of this repository needs.
+docs/images/*.png linguist-documentation
+3rdparty/** linguist-vendored

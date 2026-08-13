@@ -1,0 +1,76 @@
+name: Bug report
+description: Something is wrong, crashes, or shows the wrong numbers
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Almost every parser bug is reproducible from the `.ninja_log` alone,
+        so attaching it (or the smallest part that still reproduces) is the
+        single most useful thing you can do.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: And what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      placeholder: |
+        1. Configure a project with cmake -G Ninja and build it
+        2. bw_cli analyze build\ninja --top 20
+        3. ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where
+      options:
+        - The application (GUI)
+        - bw_cli
+        - Building the project itself
+        - Documentation
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Build Weather version
+      description: The window title shows it; `bw_cli --version` prints it.
+      placeholder: "0.4.0"
+    validations:
+      required: true
+
+  - type: input
+    id: env
+    attributes:
+      label: Qt, Visual Studio and Windows versions
+      placeholder: "Qt 6.6.2 msvc2019_64, VS 2022 17.14, Windows 11 23H2"
+    validations:
+      required: true
+
+  - type: textarea
+    id: data
+    attributes:
+      label: The data it was reading
+      description: >
+        Attach the `.ninja_log` if you can, or paste the header line and a few
+        entries. Say whether `compile_commands.json` and `-ftime-trace`
+        documents were present, and whether the app said "log covers several
+        builds".
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshot or log output
+      description: >
+        For a visual bug a screenshot is worth more than a description. For a
+        crash, anything the Output tab showed.

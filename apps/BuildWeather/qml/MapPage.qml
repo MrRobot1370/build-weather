@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
+import QtCore
 import BW.UICore
 import BuildWeather
 
@@ -8,6 +9,13 @@ Item {
     id: page
 
     readonly property bool empty: !AppContext.build.hasData
+
+    Settings {
+        id: settings
+        category: "map"
+        property bool stableOrder: true
+        property bool showLabels: true
+    }
 
     Shortcut { sequence: "Ctrl+0"; onActivated: map.fitToView() }
     Shortcut { sequence: StandardKey.ZoomIn;  onActivated: map.zoomBy(1.6) }
@@ -76,7 +84,8 @@ Item {
                 CheckBox {
                     id: stableCheck
                     text: "stable layout"
-                    checked: true
+                    checked: settings.stableOrder
+                    onToggled: settings.stableOrder = checked
                     font.family: Style.fontFamily
                     font.pixelSize: Style.fontSizeS
                     contentItem: TextBW {
@@ -109,7 +118,8 @@ Item {
                 CheckBox {
                     id: labelCheck
                     text: "labels"
-                    checked: true
+                    checked: settings.showLabels
+                    onToggled: settings.showLabels = checked
                     contentItem: TextBW {
                         text: labelCheck.text
                         variant: TextBW.Muted

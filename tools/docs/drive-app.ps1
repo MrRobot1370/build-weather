@@ -10,11 +10,19 @@
 #   Coordinates are CLIENT-relative to the app window, in physical pixels
 #   (same space as the captured PNGs).
 param(
-    [string]$Exe = "F:\tmp\Fun-Prj\Build weather\build\msvc-x64\bin\Release\BuildWeather.exe",
+    [string]$Exe,
     [string[]]$AppArgs = @(),
     [int]$StartupWait = 10,
     [Parameter(Mandatory=$true)][object[]]$Script
 )
+
+if (-not $Exe) {
+    $repo = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+    $Exe = Join-Path $repo "build\msvc-x64\bin\Release\BuildWeather.exe"
+}
+if (-not (Test-Path $Exe)) {
+    throw "BuildWeather.exe not found at $Exe. Build the msvc-x64 Release preset, or pass -Exe."
+}
 
 Add-Type -AssemblyName System.Drawing
 Add-Type @"

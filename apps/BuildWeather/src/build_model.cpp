@@ -87,28 +87,8 @@ auto BuildModel::loadNinjaLog(const QString &path) -> bool
     m_haveCommands
         = m_commands.load(toStd(m_buildDirectory), commandsError);
     if (m_haveCommands && m_sourceDirectory.isEmpty()) {
-        // deepest common ancestor of every compiled file
-        std::string root;
-        for (const auto &entry : m_commands.entries()) {
-            if (root.empty()) {
-                root = Core::parentPath(entry.file);
-                continue;
-            }
-            const std::string key = Core::pathKey(entry.file);
-            std::string candidate = root;
-            while (!candidate.empty()
-                && Core::pathKey(entry.file)
-                        .compare(0, Core::pathKey(candidate).size(),
-                                 Core::pathKey(candidate))
-                    != 0) {
-                const std::string parent = Core::parentPath(candidate);
-                if (parent == candidate) {
-                    break;
-                }
-                candidate = parent;
-            }
-            root = candidate;
-        }
+        const std::string root
+            = Build::inferSourceRoot(m_commands, toStd(m_buildDirectory));
         if (!root.empty()) {
             m_sourceDirectory = QString::fromStdString(root);
         }

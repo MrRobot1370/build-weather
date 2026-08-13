@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Windows / MSVC / Qt ${{ matrix.qt }} / ${{ matrix.config }}
+    # windows-latest currently ships Visual Studio 2022, which is what this
+    # project requires. Pin to windows-2022 if that ever stops being true.
+    runs-on: windows-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - qt: '6.6.2'
+            config: Release
+          - qt: '6.6.2'
+            config: Debug
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ matrix.qt }}
+          host: windows
+          target: desktop
+          arch: win64_msvc2019_64
+          modules: qtshadertools
+          cache: true
+
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      # The project declares LANGUAGES CXX, so setting CMAKE_C_COMPILER here
+      # would only produce an "unused variable" warning.
+      - name: Configure
+        run: >
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=${{ matrix.config }}
+          -DCMAKE_CXX_COMPILER=cl
+          -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR"
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+      # The tool has to survive a real .ninja_log, and the one this job just
+      # produced is the most convenient real one there is.
+      - name: Smoke-test bw_cli against this build
+        run: |
+          $out = ./build/bin/bw_cli.exe analyze build --top 10
+          if ($LASTEXITCODE -ne 0) { throw "bw_cli analyze failed" }
+          $out
+          # The build directory sits directly under the source root here, so
+          # this also checks that the source root is inferred from the compile
+          # database rather than guessed as <build>/../.., which would put
+          # every one of our own files in the [external] bucket.
+          if ($out -match '\[external\]/(apps|libs|tools)/') {
+            throw "source root was not inferred: our own files landed in [external]"
+          }
+          ./build/bin/bw_cli.exe --version
+          ./build/bin/bw_cli.exe analyze build --csv "$env:RUNNER_TEMP/targets.csv" --json "$env:RUNNER_TEMP/analysis.json"
+          if (-not (Test-Path "$env:RUNNER_TEMP/targets.csv")) { throw "--csv wrote nothing" }
+          $json = Get-Content "$env:RUNNER_TEMP/analysis.json" -Raw | ConvertFrom-Json
+          if ($json.schema -ne 'build-weather/analysis/1') { throw "unexpected JSON schema: $($json.schema)" }
+
+      # A flag with a missing value must fail rather than quietly do nothing;
+      # CI scripts branch on the exit code.
+      - name: Check bw_cli rejects bad command lines
+        run: |
+          ./build/bin/bw_cli.exe analyze build --csv
+          if ($LASTEXITCODE -ne 2) { throw "expected exit 2 for a valueless flag, got $LASTEXITCODE" }
+          ./build/bin/bw_cli.exe analyze build --top abc
+          if ($LASTEXITCODE -ne 2) { throw "expected exit 2 for a non-numeric --top, got $LASTEXITCODE" }
+          ./build/bin/bw_cli.exe frobnicate
+          if ($LASTEXITCODE -ne 2) { throw "expected exit 2 for an unknown command, got $LASTEXITCODE" }
+
+      - name: Upload test output on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ctest-${{ matrix.config }}
+          path: build/Testing/
+          if-no-files-found: ignore

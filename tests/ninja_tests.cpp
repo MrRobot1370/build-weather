@@ -50,6 +50,7 @@ private slots:
 
     void compileCommandsJoinObjectsToSources();
     void objectPathGuessFallback();
+    void sourceRootIsTheDeepestCommonDirectory();
 
     void snapshotResolvesSourcesAndRanks();
     void snapshotDropsDuplicateOutputSpellings();
@@ -342,6 +343,62 @@ void NinjaTests::objectPathGuessFallback()
     // Anything that is not shaped like a CMake object is not guessed at.
     QCOMPARE(guessSourceFromObject("bin/BuildWeather.exe"), std::string {});
     QCOMPARE(guessSourceFromObject("some/random.obj"), std::string {});
+}
+
+void NinjaTests::sourceRootIsTheDeepestCommonDirectory()
+{
+    const auto rootOf = [](std::string_view json,
+                           std::string_view buildRoot = {}) {
+        CompileCommands commands;
+        std::string error;
+        commands.parse(json, error);
+        return inferSourceRoot(commands, buildRoot);
+    };
+
+    QCOMPARE(
+        rootOf(R"([
+          {"directory":"C:/p/build","file":"C:/p/libs/a.cpp","command":"x"},
+          {"directory":"C:/p/build","file":"C:/p/apps/b.cpp","command":"x"}
+        ])"),
+        std::string { "C:/p" });
+
+    // A sibling whose name merely starts with the current root's name must
+    // not look like it lives inside it.
+    QCOMPARE(
+        rootOf(R"([
+          {"directory":"C:/p/build","file":"C:/p/src/a.cpp","command":"x"},
+          {"directory":"C:/p/build","file":"C:/p/src2/b.cpp","command":"x"}
+        ])"),
+        std::string { "C:/p" });
+
+    // A single entry gives its own directory, not the whole drive.
+    QCOMPARE(
+        rootOf(R"([
+          {"directory":"C:/p/build","file":"C:/p/src/only.cpp","command":"x"}
+        ])"),
+        std::string { "C:/p/src" });
+
+    // Nothing in common: no root rather than a wrong one.
+    QCOMPARE(
+        rootOf(R"([
+          {"directory":"C:/p/build","file":"C:/p/a.cpp","command":"x"},
+          {"directory":"D:/q/build","file":"D:/q/b.cpp","command":"x"}
+        ])"),
+        std::string {});
+
+    // Generated sources live under the build root and must not count. With a
+    // build directory on another drive they otherwise leave no common
+    // ancestor at all.
+    constexpr std::string_view kWithGenerated = R"([
+      {"directory":"D:/b","file":"C:/p/src/a.cpp","command":"x"},
+      {"directory":"D:/b","file":"C:/p/src/b.cpp","command":"x"},
+      {"directory":"D:/b","file":"D:/b/moc_a.cpp","command":"x"}
+    ])";
+    QCOMPARE(rootOf(kWithGenerated), std::string {});
+    QCOMPARE(rootOf(kWithGenerated, "D:/b"), std::string { "C:/p/src" });
+
+    CompileCommands empty;
+    QCOMPARE(inferSourceRoot(empty), std::string {});
 }
 
 // snapshot

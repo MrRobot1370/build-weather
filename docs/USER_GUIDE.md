@@ -172,13 +172,24 @@ The Analysis tab is deliberately plain: no animation, just numbers.
 
 This is the view that pays for the tool, and it needs a clang-cl build with
 `-ftime-trace`. MSVC has no equivalent, so this is a second build directory
-used only to produce the data:
+used only to produce the data. Install Visual Studio's "C++ Clang tools for
+Windows" component, then:
 
 ```
-tools\make-time-traces.cmd
+cmake -S . -B build\clangcl -G "Visual Studio 17 2022" -A x64 -T ClangCL ^
+      -DCMAKE_CXX_FLAGS="/DWIN32 /D_WINDOWS /EHsc /clang:-ftime-trace"
+cmake --build build\clangcl --config Release
 ```
+
+`-T` selects a toolset, which the Ninja generator does not support, hence the
+Visual Studio generator. And `CMAKE_CXX_FLAGS` replaces CMake's defaults
+rather than adding to them, which is why `/EHsc` has to be repeated: without
+it every `try` block fails to compile.
 
 Then press **Load -ftime-trace** and point it at that directory.
+
+For Build Weather's own tree, `tools\make-time-traces.cmd` does all of that
+into `build\clangcl-x64`.
 
 ![Headers ranked by total cost across every translation unit](images/06-analysis-headers.png)
 
@@ -302,7 +313,20 @@ bw_cli.exe compare old.ninja_log build\ninja\.ninja_log --csv deltas.csv
 ```
 
 `analyze` prints the build summary, the slowest steps and the header ranking.
-`--json` and `--csv` write the same data to a file.
+`--json` writes the same data to a file, truncated to `--top` rows like the
+console output; `--csv` writes every row, never truncated.
+
+`analyze` takes the build **directory**, not the log file. It finds the source
+root from `compile_commands.json`, so `--source` is only needed when there is
+no compile database.
+
+Exit codes are worth knowing if you script this: **0** success, **1** an input
+could not be read or an output could not be written, **2** the command line
+was wrong. A flag given without its value is a command-line error rather than
+a silent no-op, so a mistyped `--csv` fails the step instead of quietly
+writing nothing.
+
+`bw_cli --help` lists every option, and `bw_cli --version` prints the version.
 
 ---
 
@@ -313,9 +337,13 @@ Worth being precise about, because a treemap invites more trust than it earns.
 **Durations are exact.** They come from `.ninja_log`, which records the start
 and end of every step in milliseconds. Nothing is sampled or estimated.
 
-**A log accumulates across builds.** See the scope switch in section 2. When the header
-says "log covers several builds", the durations are still each exact but they
-were measured at different times, and the *timeline* mixes clocks.
+**A log accumulates across builds.** See the scope switch in section 2. When
+the header says "log covers several builds", the durations are still each
+exact but they were measured at different times, and the *timeline* mixes
+clocks. In that state the **wall clock and peak jobs figures mean little**,
+because they come from overlaying separate runs; switch the scope to *Last
+build* to get numbers from a single timeline. `bw_cli` prints the same warning
+in that case.
 
 **Several steps can share one file.** A generated source is written by one
 step and compiled by another. Both belong at that leaf, so their durations are

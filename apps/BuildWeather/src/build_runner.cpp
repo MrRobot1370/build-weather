@@ -123,8 +123,9 @@ auto BuildRunner::start(
     }
     if (m_ninjaProgram.isEmpty()) {
         m_lastError = QStringLiteral(
-            "ninja was not found on PATH. Set the path to ninja.exe in "
-            "Settings.");
+            "ninja was not found. Put ninja.exe on PATH, or start Build "
+            "Weather from a Developer Command Prompt, which has the copy "
+            "Visual Studio ships with its CMake integration.");
         Q_EMIT runningChanged();
         return false;
     }

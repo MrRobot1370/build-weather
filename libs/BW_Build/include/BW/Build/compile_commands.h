@@ -77,4 +77,21 @@ private:
 [[nodiscard]]
 auto guessSourceFromObject(std::string_view objectPath) -> std::string;
 
+/**
+ * @brief Deepest directory containing every authored source in the database.
+ *
+ * Files under `buildRoot` are ignored: moc output, qmltyperegistrations and
+ * the rest are compiled sources too, and counting them drags the common
+ * ancestor up to whatever the source and build trees share, which is nothing
+ * at all when the build directory is on another drive.
+ *
+ * Matching is on whole path segments, so a root of "src" never swallows a
+ * sibling "src2". Returns "" when there is no common directory, leaving the
+ * caller to fall back.
+ */
+[[nodiscard]]
+auto inferSourceRoot(
+    const CompileCommands &commands,
+    std::string_view buildRoot = {}) -> std::string;
+
 }
