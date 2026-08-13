@@ -13,7 +13,7 @@ their final colour, so a parallel build reads as weather crossing a map.
 ![C++20](https://img.shields.io/badge/C%2B%2B-20-blue)
 ![Qt 6.5+](https://img.shields.io/badge/Qt-6.5%2B-41cd52)
 
-![The Map tab](docs/images/01-overview.png)
+![Build Weather showing a build as a treemap of the source tree](docs/images/00-hero.png)
 
 It reads files your build already produces. There is nothing to instrument.
 

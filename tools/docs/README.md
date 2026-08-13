@@ -12,6 +12,11 @@ stale silently.
 | `annotate.ps1` | Crops a capture, draws numbered callouts and region boxes, scales it for print |
 | `../build-docs.py` | Renders `USER_GUIDE.md` to `USER_GUIDE.pdf` |
 
+`00-hero.png` is the exception: it is the README's header image and carries no
+callouts, because numbered annotations belong in the guide that refers to them
+and nowhere else. Re-capture it plain, light theme, cursor off the map so no
+tooltip is showing, and after the first-run zoom hint has retired.
+
 ## Doing it
 
 1. Produce the data the figures show, once:
@@ -81,7 +86,7 @@ capture to read a neutral path instead:
 
 | Figure | Now reads |
 | --- | --- |
-| `01-overview`, `08-live` | `C:/projects/build-weather/build/ninja-x64` |
+| `00-hero`, `01-overview`, `08-live` | `C:/projects/build-weather/build/ninja-x64` |
 | `10-large-project` | `C:/projects/large-app/build/x64-relWithDebInfo` |
 | `06-analysis-headers`, row 17 | `C:/projects/build-weather/apps/...` |
 | `07-compare` | `C:/proj/baselines/before-change.ninja_log` |
