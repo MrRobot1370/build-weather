@@ -55,3 +55,12 @@ set_target_properties(BuildWeather PROPERTIES
     WIN32_EXECUTABLE $<AND:$<CONFIG:Release>,$<BOOL:${WIN32}>>)
 
 bw_deploy_runtime(BuildWeather)
+
+# --- install ----------------------------------------------------------------
+# main.cpp adds applicationDirPath()/qml as an import path, so the QML modules
+# have to sit beside the executable rather than under bin/.
+install(TARGETS BuildWeather
+    RUNTIME DESTINATION "."
+    BUNDLE  DESTINATION ".")
+
+bw_install_runtime(BuildWeather)

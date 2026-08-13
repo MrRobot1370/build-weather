@@ -82,8 +82,21 @@ language it compiles.
 
 ## Install
 
-There are no prebuilt binaries; build from source, which takes about two
-minutes.
+### Download a release
+
+Grab `BuildWeather-<version>-windows-x64.zip` from the
+[releases page](https://github.com/MrRobot1370/build-weather/releases), unzip
+it anywhere, and run `BuildWeather.exe`.
+
+The package is self-contained: the Qt runtime, the QML modules and the Visual
+C++ runtime DLLs are all inside it. There is nothing to install, no Qt to set
+up and no redistributable to chase. It also carries `bw_cli.exe`, the user
+guide, and `sdk/` with the headers and libraries for the Qt-free parsing and
+layout libraries.
+
+### Or build from source
+
+About two minutes.
 
 ```bash
 git clone https://github.com/MrRobot1370/build-weather.git
@@ -367,6 +380,26 @@ Presets:
 
 Build presets are `<configure-preset>-<config>`, for example
 `msvc-x64-release`, `msvc-x64-debug`, `msvc-x64-relwithdebinfo`.
+
+### Building the release package
+
+```bash
+cmake --build --preset msvc-x64-release
+cd build/msvc-x64 && cpack -C Release
+```
+
+That produces `BuildWeather-<version>-windows-x64.zip`: the executables, the
+Qt runtime and QML modules from `windeployqt`, the Visual C++ runtime DLLs,
+the docs, and `sdk/`. Unpacking it gives one named folder that runs on a
+machine with no Qt and no redistributable installed.
+
+The `sdk/` directory exports a CMake package, so the Qt-free libraries can be
+consumed directly:
+
+```cmake
+find_package(BuildWeather REQUIRED)   # -DCMAKE_PREFIX_PATH=<package>/sdk
+target_link_libraries(you PRIVATE BW::Build BW::Treemap)
+```
 
 ## Troubleshooting
 

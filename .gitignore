@@ -7,6 +7,10 @@
 /out/
 /dist/
 
+# CPack writes these into whatever directory it is run from.
+/_CPack_Packages/
+/BuildWeather-*.zip
+
 .vs/
 .vscode/
 .idea/

@@ -9,3 +9,6 @@ target_link_libraries(bw_cli PRIVATE BW::Core BW::Build BW::Treemap)
 target_compile_features(bw_cli PRIVATE cxx_std_20)
 target_compile_definitions(bw_cli PRIVATE BW_VERSION="${PROJECT_VERSION}")
 set_property(TARGET bw_cli PROPERTY FOLDER "tools")
+
+# Links no Qt, so it needs nothing from the deployment but the C runtime.
+install(TARGETS bw_cli RUNTIME DESTINATION ".")

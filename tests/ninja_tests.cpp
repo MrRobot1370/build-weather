@@ -362,8 +362,7 @@ void NinjaTests::sourceRootIsTheDeepestCommonDirectory()
         ])"),
         std::string { "C:/p" });
 
-    // A sibling whose name merely starts with the current root's name must
-    // not look like it lives inside it.
+    // "src2" is not inside "src"
     QCOMPARE(
         rootOf(R"([
           {"directory":"C:/p/build","file":"C:/p/src/a.cpp","command":"x"},
@@ -371,14 +370,14 @@ void NinjaTests::sourceRootIsTheDeepestCommonDirectory()
         ])"),
         std::string { "C:/p" });
 
-    // A single entry gives its own directory, not the whole drive.
+    // one entry: its own directory, not the whole drive
     QCOMPARE(
         rootOf(R"([
           {"directory":"C:/p/build","file":"C:/p/src/only.cpp","command":"x"}
         ])"),
         std::string { "C:/p/src" });
 
-    // Nothing in common: no root rather than a wrong one.
+    // nothing in common: no root rather than a wrong one
     QCOMPARE(
         rootOf(R"([
           {"directory":"C:/p/build","file":"C:/p/a.cpp","command":"x"},
@@ -386,9 +385,8 @@ void NinjaTests::sourceRootIsTheDeepestCommonDirectory()
         ])"),
         std::string {});
 
-    // Generated sources live under the build root and must not count. With a
-    // build directory on another drive they otherwise leave no common
-    // ancestor at all.
+    // build root on another drive, so skipping generated entries is what
+    // leaves any common ancestor at all
     constexpr std::string_view kWithGenerated = R"([
       {"directory":"D:/b","file":"C:/p/src/a.cpp","command":"x"},
       {"directory":"D:/b","file":"C:/p/src/b.cpp","command":"x"},

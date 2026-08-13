@@ -88,9 +88,8 @@ public:
     void setBuildRoot(std::string_view root);
 
     /// Extra absolute prefixes to treat as toolchain headers. The built-in
-    /// heuristics cover the MSVC toolset, the Windows SDK, MinGW and the
-    /// usual Unix locations. A framework installed elsewhere, Qt included,
-    /// lands in External until its prefix is added here.
+    /// heuristics cover the MSVC toolset, the Windows SDK, MinGW and the usual
+    /// Unix locations; anything else, Qt included, lands in External.
     void addSystemPrefix(std::string_view prefix);
 
     [[nodiscard]]

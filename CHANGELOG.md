@@ -36,6 +36,11 @@ First public release.
   deltas as CSV.
 - Light and dark themes, following the system by default.
 - User guide with annotated screenshots, in Markdown and PDF.
+- A self-contained Windows package, `cpack -C Release` from the build
+  directory. It carries the Qt runtime, the QML modules, the Visual C++
+  runtime DLLs and the docs, so it runs on a machine with neither Qt nor the
+  redistributable installed. `sdk/` in the package exports a CMake package for
+  `BW::Core`, `BW::Build` and `BW::Treemap`.
 
 ### Notes
 

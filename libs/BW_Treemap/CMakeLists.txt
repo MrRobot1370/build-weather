@@ -28,3 +28,4 @@ target_sources(${PROJECT_NAME}
 
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_20)
 set_property(TARGET ${PROJECT_NAME} PROPERTY FOLDER "libs")
+set_property(TARGET ${PROJECT_NAME} PROPERTY EXPORT_NAME Treemap)

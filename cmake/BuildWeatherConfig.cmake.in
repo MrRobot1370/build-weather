@@ -1,0 +1,8 @@
+@PACKAGE_INIT@
+
+# Qt-free by design, so a consumer of BW::Core, BW::Build or BW::Treemap needs
+# no Qt and this config declares no dependencies.
+
+include("${CMAKE_CURRENT_LIST_DIR}/BuildWeatherTargets.cmake")
+
+check_required_components(BuildWeather)

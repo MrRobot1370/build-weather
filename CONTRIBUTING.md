@@ -112,6 +112,12 @@ Keep a pull request to one concern. Confirm before you open it:
 - [ ] `bw_cli analyze build\ninja-x64` still prints sensible numbers
 - [ ] docs updated if behaviour changed
 
+If the change adds a QML import, a Qt module or a runtime file, also rebuild
+the package (`cd build/msvc-x64 && cpack -C Release`), unzip it somewhere
+else, and run it **with Qt removed from `PATH`**. That is the only check that
+catches a package which happens to work only on a machine that already has Qt.
+An unstyled window means the `BW.UICore` qmldir did not ship.
+
 ## Reporting a bug
 
 Please include the Build Weather version, your Qt and Visual Studio versions,

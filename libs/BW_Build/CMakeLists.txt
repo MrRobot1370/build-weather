@@ -47,6 +47,7 @@ target_include_directories(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME} PUBLIC BW::Core)
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_20)
 set_property(TARGET ${PROJECT_NAME} PROPERTY FOLDER "libs")
+set_property(TARGET ${PROJECT_NAME} PROPERTY EXPORT_NAME Build)
 
 # The private headers are reachable for tests without exporting them.
 add_library(${PROJECT_NAME}_Private INTERFACE)

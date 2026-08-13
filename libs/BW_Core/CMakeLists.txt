@@ -26,3 +26,7 @@ target_sources(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME} PUBLIC bw::spdlog)
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_20)
 set_property(TARGET ${PROJECT_NAME} PROPERTY FOLDER "libs")
+
+# install(EXPORT) prepends the namespace to the target name, not the alias, so
+# without this the package exports BW::BW_Core.
+set_property(TARGET ${PROJECT_NAME} PROPERTY EXPORT_NAME Core)

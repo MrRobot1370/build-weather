@@ -9,7 +9,7 @@
 // check: if this prints sensible numbers the parsers are wired up correctly.
 //
 // Exit codes: 0 success, 1 an input could not be read or an output written,
-// 2 the command line itself was wrong. CI scripts branch on these.
+// 2 the command line was wrong.
 
 #include "BW/Build/build_snapshot.h"
 #include "BW/Build/compile_commands.h"
@@ -51,9 +51,8 @@ auto parseArgs(int argc, char **argv) -> Args
     Args args;
     for (int i = 1; i < argc; ++i) {
         const std::string arg { argv[i] };
-        // A flag whose value is missing must not silently become an empty
-        // string: --csv with nothing after it would then write no file and
-        // still exit 0, which a CI script reads as success.
+        // A missing value is an error, not an empty string: `--csv` with
+        // nothing after it would otherwise write no file and exit 0.
         const auto next = [&](std::string &out) -> bool {
             if (i + 1 >= argc) {
                 std::cerr << arg << " needs a value\n";
@@ -115,9 +114,8 @@ auto parseArgs(int argc, char **argv) -> Args
     return args;
 }
 
-// Requested help goes to stdout, usage printed because the command line was
-// wrong goes to stderr, so `bw_cli --help > usage.txt` works and a failing CI
-// step does not have its diagnostic swallowed by a redirect.
+// Requested help goes to stdout, usage printed after a bad command line goes
+// to stderr.
 void usage(std::ostream &to)
 {
     to
@@ -147,9 +145,8 @@ auto writeFile(const std::string &path, const std::string &content) -> bool
     return true;
 }
 
-// Deltas are negative, so the magnitude picks the unit and the sign is put
-// back afterwards; comparing on the raw value left every regression that got
-// faster than a minute printed as a raw millisecond count.
+// Deltas are negative, so the magnitude picks the unit and the sign goes back
+// on afterwards.
 auto formatMs(Build::Millis ms) -> std::string
 {
     const char *sign = ms < 0 ? "-" : "";
@@ -195,8 +192,7 @@ auto runAnalyze(const Args &args) -> int
     const auto log = Build::readNinjaLog(logPath, error);
     if (!log) {
         std::cerr << error << "\n";
-        // A log copied aside keeps the extension but not the exact name, so
-        // both spellings are worth catching; this is the likeliest mistake.
+        // A log copied aside keeps the extension but not the name.
         if (Core::fileName(buildDir) == ".ninja_log"
             || Core::extension(buildDir) == ".ninja_log") {
             std::cerr << "analyze takes the build directory, not the log "
@@ -215,9 +211,8 @@ auto runAnalyze(const Args &args) -> int
     const bool haveCommands = commands.load(buildDir, commandsError);
 
     // The compile database names every source file, so their deepest common
-    // directory is the source root. Only when there is no database does this
-    // fall back to the <source>/build/<preset> convention, which is wrong for
-    // a build directory that sits directly under the source root.
+    // directory is the source root. The fallback assumes
+    // <source>/build/<preset> and is wrong for any other depth.
     std::string sourceDir = Core::normalizePath(args.sourceDir);
     if (sourceDir.empty() && haveCommands) {
         sourceDir = Build::inferSourceRoot(commands, buildDir);

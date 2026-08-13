@@ -97,6 +97,69 @@ if(BW_BUILD_TESTS)
     add_subdirectory(tests)
 endif()
 
+# --- Packaging --------------------------------------------------------------
+
+# vcruntime140.dll and msvcp140.dll, so the package does not require the
+# Visual C++ redistributable. The UCRT ships with Windows itself.
+set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION ".")
+set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP FALSE)
+include(InstallRequiredSystemLibraries)
+
+# The Qt-free libraries, under sdk/. Not needed to run the application.
+install(TARGETS BW_Core BW_Build BW_Treemap
+    EXPORT      BuildWeatherTargets
+    RUNTIME     DESTINATION "."
+    LIBRARY     DESTINATION "."
+    ARCHIVE     DESTINATION "sdk/lib"
+    FILE_SET HEADERS DESTINATION "sdk/include")
+install(EXPORT BuildWeatherTargets
+    FILE        BuildWeatherTargets.cmake
+    NAMESPACE   BW::
+    DESTINATION "sdk/lib/cmake/BuildWeather")
+# BW/Core/logger.h includes spdlog, so the drop travels with the headers.
+install(DIRECTORY "${BW_3RDPARTY_DIR}/spdlog/include/spdlog"
+    DESTINATION "sdk/include")
+
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/BuildWeatherConfigVersion.cmake"
+    VERSION       ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion)
+configure_package_config_file(
+    "${CMAKE_SOURCE_DIR}/cmake/BuildWeatherConfig.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/BuildWeatherConfig.cmake"
+    INSTALL_DESTINATION "sdk/lib/cmake/BuildWeather")
+install(FILES
+        "${CMAKE_CURRENT_BINARY_DIR}/BuildWeatherConfig.cmake"
+        "${CMAKE_CURRENT_BINARY_DIR}/BuildWeatherConfigVersion.cmake"
+    DESTINATION "sdk/lib/cmake/BuildWeather")
+
+install(FILES
+        "${CMAKE_SOURCE_DIR}/LICENSE"
+        "${CMAKE_SOURCE_DIR}/THIRD-PARTY-NOTICES.md"
+        "${CMAKE_SOURCE_DIR}/CHANGELOG.md"
+    DESTINATION ".")
+# The repository README opens with how to clone and build, which is the wrong
+# first page for someone who downloaded a binary.
+install(FILES "${CMAKE_SOURCE_DIR}/cmake/PACKAGE-README.md"
+    DESTINATION "." RENAME "README.md")
+install(FILES
+        "${CMAKE_SOURCE_DIR}/docs/USER_GUIDE.md"
+        "${CMAKE_SOURCE_DIR}/docs/USER_GUIDE.pdf"
+    DESTINATION "docs")
+
+set(CPACK_PACKAGE_NAME                "BuildWeather")
+set(CPACK_PACKAGE_VENDOR              "Masoud Ghasemi Dehkordi")
+set(CPACK_PACKAGE_VERSION             "${PROJECT_VERSION}")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "${PROJECT_DESCRIPTION}")
+set(CPACK_RESOURCE_FILE_LICENSE       "${CMAKE_SOURCE_DIR}/LICENSE")
+set(CPACK_PACKAGE_FILE_NAME "BuildWeather-${PROJECT_VERSION}-windows-x64")
+# Unpacking must give a named folder, never loose files in Downloads.
+set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY ON)
+set(CPACK_GENERATOR                   "ZIP")
+set(CPACK_SOURCE_GENERATOR            "")
+include(CPack)
+
 message(STATUS "")
 message(STATUS "Build Weather ${PROJECT_VERSION}")
 message(STATUS "  Qt:      ${Qt6_VERSION}")
