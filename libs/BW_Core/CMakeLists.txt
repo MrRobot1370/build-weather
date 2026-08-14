@@ -1,4 +1,4 @@
-project(BW_Core VERSION 0.4.0 LANGUAGES CXX)
+project(BW_Core VERSION 0.4.1 LANGUAGES CXX)
 
 set(HEADERS
     "include/BW/Core/logger.h"

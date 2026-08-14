@@ -1,4 +1,4 @@
-project(BW_Treemap VERSION 0.4.0 LANGUAGES CXX)
+project(BW_Treemap VERSION 0.4.1 LANGUAGES CXX)
 
 # Pure geometry: no Qt, no rendering. The QQuickItem in apps/ turns the
 # LayoutItem list into scene graph nodes.

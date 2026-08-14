@@ -50,7 +50,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 20)
 
 project(BuildWeather
-    VERSION 0.4.0
+    VERSION 0.4.1
     DESCRIPTION "Live and post-mortem visualization of a C++ build"
     LANGUAGES CXX)
 

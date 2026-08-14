@@ -9,6 +9,8 @@ The JSON produced by `bw_cli --json` carries its own schema version in the
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-08-14
+
 ### Fixed
 
 - Live builds against an MSVC build directory no longer require starting Build
@@ -59,5 +61,6 @@ First public release.
 - The header and template rankings need a clang-cl build compiled with
   `-ftime-trace`; MSVC produces no equivalent data.
 
-[Unreleased]: https://github.com/MrRobot1370/build-weather/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/MrRobot1370/build-weather/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/MrRobot1370/build-weather/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/MrRobot1370/build-weather/releases/tag/v0.4.0

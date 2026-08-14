@@ -1,4 +1,4 @@
-project(BW_Build VERSION 0.4.0 LANGUAGES CXX)
+project(BW_Build VERSION 0.4.1 LANGUAGES CXX)
 
 # Deliberately free of Qt: everything here is a pure parser or model over
 # plain C++ types, so the unit tests can exercise it without a QApplication
