@@ -36,12 +36,13 @@ cmake -S . -B build/ninja -G Ninja -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 cmake --build build/ninja
 ```
 
-> **Live builds need a developer environment.** `cl.exe` cannot find the
-> standard headers unless `INCLUDE` and `LIB` are set, and an application
-> started from Explorer does not have them. Start Build Weather from a
-> Developer Command Prompt if you want to run builds from inside it. The app
-> checks this and warns you on the Output tab rather than letting the map fill
-> up with identical errors.
+> **Live builds set up their own developer environment.** `cl.exe` cannot find
+> the standard headers unless `INCLUDE` and `LIB` are set, and an application
+> started from Explorer does not have them. So when the build directory was
+> configured with MSVC and `INCLUDE` is missing, Build Weather runs the
+> `vcvarsall.bat` belonging to that build's own toolchain and gives ninja the
+> environment it produces. It says which one on the Output tab. Starting from
+> a Developer Command Prompt also works and skips the step.
 
 ---
 

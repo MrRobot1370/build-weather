@@ -9,6 +9,16 @@ The JSON produced by `bw_cli --json` carries its own schema version in the
 
 ## [Unreleased]
 
+### Fixed
+
+- Live builds against an MSVC build directory no longer require starting Build
+  Weather from a Developer Command Prompt. When `INCLUDE` is not set, the
+  `vcvarsall.bat` belonging to that build's own toolchain is run and its
+  environment handed to ninja, which is what Visual Studio does. The toolchain
+  comes from `CMAKE_LINKER` in the build's `CMakeCache.txt` and the
+  architecture from `VSInheritEnvironments.txt`. Previously every compile
+  failed with C1083 and every link with LNK1104.
+
 ## [0.4.0] - 2026-08-13
 
 First public release.

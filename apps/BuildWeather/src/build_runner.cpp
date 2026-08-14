@@ -7,6 +7,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QProcessEnvironment>
+#include <QRegularExpression>
 #include <QStandardPaths>
 #include <QTextStream>
 
@@ -19,9 +20,7 @@ namespace {
 /// and would drop completions during a parallel build.
 constexpr int kPollIntervalMs = 60;
 
-/// cl.exe needs INCLUDE and LIB from vcvars64.bat, which a GUI app started
-/// from Explorer does not have. Every compile then fails with C1083, so this
-/// is caught up front with an actionable message.
+/// cl.exe without INCLUDE and LIB fails every compile with C1083.
 auto looksLikeMsvcBuild(const QString &buildDirectory) -> bool
 {
     QFile cache { buildDirectory + "/CMakeCache.txt" };
@@ -37,6 +36,108 @@ auto looksLikeMsvcBuild(const QString &buildDirectory) -> bool
         }
     }
     return false;
+}
+
+auto cacheValue(const QString &buildDirectory, const QString &key) -> QString
+{
+    QFile cache { buildDirectory + "/CMakeCache.txt" };
+    if (!cache.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return {};
+    }
+    QTextStream stream { &cache };
+    while (!stream.atEnd()) {
+        const QString line = stream.readLine();
+        const qsizetype colon = line.indexOf(':');
+        const qsizetype equals = line.indexOf('=');
+        if (colon > 0 && equals > colon && line.left(colon) == key) {
+            return line.mid(equals + 1);
+        }
+    }
+    return {};
+}
+
+/// CMAKE_LINKER names the Visual Studio installation that configured this
+/// tree; the edition list is the fallback.
+auto findVcvarsall(const QString &buildDirectory) -> QString
+{
+    const QString linker
+        = QDir::fromNativeSeparators(cacheValue(buildDirectory, "CMAKE_LINKER"));
+    const qsizetype vc = linker.indexOf("/VC/", 0, Qt::CaseInsensitive);
+    if (vc > 0) {
+        const QString candidate
+            = linker.left(vc) + "/VC/Auxiliary/Build/vcvarsall.bat";
+        if (QFileInfo::exists(candidate)) {
+            return candidate;
+        }
+    }
+
+    static const QStringList kEditions {
+        "Enterprise", "Professional", "Community", "BuildTools"
+    };
+    for (const QString &edition : kEditions) {
+        const QString candidate
+            = "C:/Program Files/Microsoft Visual Studio/2022/" + edition
+            + "/VC/Auxiliary/Build/vcvarsall.bat";
+        if (QFileInfo::exists(candidate)) {
+            return candidate;
+        }
+    }
+    return {};
+}
+
+/// VSInheritEnvironments.txt holds `msvc_<host>[_<target>]`.
+auto vcvarsArchitecture(const QString &buildDirectory) -> QString
+{
+    QFile marker { buildDirectory + "/VSInheritEnvironments.txt" };
+    if (marker.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QTextStream stream { &marker };
+        while (!stream.atEnd()) {
+            const QString entry = stream.readLine().trimmed().toLower();
+            if (!entry.startsWith("msvc_")) {
+                continue;
+            }
+            const QStringList parts = entry.mid(5).split('_');
+            if (parts.size() >= 2 && parts[0] != parts[1]) {
+                return parts[0] + '_' + parts[1]; // cross build
+            }
+            if (!parts.isEmpty()) {
+                return parts[0];
+            }
+        }
+    }
+    return QStringLiteral("x64");
+}
+
+/// `set` after vcvarsall, parsed back. Empty when the batch file fails.
+auto captureMsvcEnvironment(const QString &vcvarsall, const QString &arch)
+    -> QProcessEnvironment
+{
+    QProcess shell;
+    shell.setProgram(QStringLiteral("cmd.exe"));
+    // setNativeArguments, not setArguments: QProcess re-quotes each argument
+    // and cmd /C needs this exact string, outer quotes included.
+    shell.setNativeArguments(
+        QStringLiteral("/C \"\"%1\" %2 >nul 2>&1 && set\"")
+            .arg(QDir::toNativeSeparators(vcvarsall), arch));
+    shell.setProcessChannelMode(QProcess::SeparateChannels);
+    shell.start();
+    if (!shell.waitForFinished(60000) || shell.exitCode() != 0) {
+        return {};
+    }
+
+    QProcessEnvironment environment;
+    const QString text = QString::fromLocal8Bit(shell.readAllStandardOutput());
+    const QStringList lines
+        = text.split(QRegularExpression { "[\r\n]+" }, Qt::SkipEmptyParts);
+    for (const QString &line : lines) {
+        const qsizetype equals = line.indexOf('=');
+        if (equals > 0) {
+            environment.insert(line.left(equals), line.mid(equals + 1));
+        }
+    }
+    return environment.contains(QStringLiteral("INCLUDE"))
+        ? environment
+        : QProcessEnvironment {};
 }
 
 }
@@ -159,26 +260,13 @@ auto BuildRunner::start(
     m_tail.setPath((directory + "/.ninja_log").toStdString());
     m_tail.seekToEnd();
 
-#ifdef Q_OS_WIN
-    if (!qEnvironmentVariableIsSet("INCLUDE")
-        && looksLikeMsvcBuild(directory)) {
-        appendOutput(
-            QStringLiteral(
-                "> warning: INCLUDE is not set, so cl.exe will not find the "
-                "standard headers. Start Build Weather from a Developer "
-                "Command Prompt (or run vcvars64.bat first) for live builds "
-                "against an MSVC build directory."));
-    }
-#endif
-
     QStringList arguments { "-C", QDir::toNativeSeparators(directory) };
     if (jobs > 0) {
         arguments << "-j" << QString::number(jobs);
     }
     arguments << targets;
 
-    QProcessEnvironment environment
-        = QProcessEnvironment::systemEnvironment();
+    QProcessEnvironment environment = buildEnvironment(directory);
     // pin the prefix, which otherwise varies by ninja version and environment
     environment.insert(
         "NINJA_STATUS",
@@ -324,6 +412,49 @@ void BuildRunner::onErrorOccurred(QProcess::ProcessError error)
         m_timer.stop();
         Q_EMIT runningChanged();
     }
+}
+
+auto BuildRunner::buildEnvironment(const QString &buildDirectory)
+    -> QProcessEnvironment
+{
+    const QProcessEnvironment system = QProcessEnvironment::systemEnvironment();
+#ifdef Q_OS_WIN
+    if (system.contains(QStringLiteral("INCLUDE"))
+        || !looksLikeMsvcBuild(buildDirectory)) {
+        return system;
+    }
+
+    const QString vcvarsall = findVcvarsall(buildDirectory);
+    if (vcvarsall.isEmpty()) {
+        appendOutput(QStringLiteral(
+            "> warning: INCLUDE is not set and no vcvarsall.bat was found, so "
+            "cl.exe will not find the standard headers. Start Build Weather "
+            "from a Developer Command Prompt."));
+        return system;
+    }
+
+    const QString arch = vcvarsArchitecture(buildDirectory);
+    const QString key = vcvarsall + '|' + arch;
+    if (!m_msvcEnvironments.contains(key)) {
+        appendOutput(
+            QStringLiteral("> setting up the MSVC %1 environment from %2")
+                .arg(arch, QDir::toNativeSeparators(vcvarsall)));
+        m_msvcEnvironments.insert(key, captureMsvcEnvironment(vcvarsall, arch));
+    }
+
+    const QProcessEnvironment &msvc = m_msvcEnvironments[key];
+    if (msvc.isEmpty()) {
+        appendOutput(QStringLiteral(
+            "> warning: vcvarsall.bat did not export INCLUDE, so cl.exe will "
+            "not find the standard headers. Start Build Weather from a "
+            "Developer Command Prompt."));
+        return system;
+    }
+    return msvc;
+#else
+    Q_UNUSED(buildDirectory)
+    return system;
+#endif
 }
 
 void BuildRunner::appendOutput(const QString &line)

@@ -17,8 +17,10 @@
 #include "BW/Build/ninja_log.h"
 #include "BW/Build/ninja_progress.h"
 
+#include <QHash>
 #include <QObject>
 #include <QProcess>
+#include <QProcessEnvironment>
 #include <QStringList>
 #include <QTimer>
 #include <QtQml/qqmlregistration.h>
@@ -168,6 +170,12 @@ private:
     void appendOutput(const QString &line);
     void pollLog();
 
+    /// Environment for ninja. On an MSVC build directory without INCLUDE this
+    /// is the system environment plus whatever vcvarsall.bat exports; the
+    /// system environment alone otherwise.
+    auto buildEnvironment(const QString &buildDirectory)
+        -> QProcessEnvironment;
+
     QProcess m_process;
     QTimer m_timer;
     Build::ProgressStream m_stream;
@@ -190,6 +198,10 @@ private:
     int m_activeJobs { 0 };
     int m_peakJobs { 0 };
     bool m_running { false };
+
+    /// vcvarsall.bat takes about a second, so its result is kept per
+    /// "<batch path>|<arch>" for the life of the process.
+    QHash<QString, QProcessEnvironment> m_msvcEnvironments;
 
     static constexpr int kMaxOutputLines = 400;
 };

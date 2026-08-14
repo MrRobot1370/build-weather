@@ -410,10 +410,16 @@ Everything except live builds works without ninja.
 
 **Every compile fails with C1083 during a live build.** `cl.exe` finds neither
 the CRT headers nor the import libraries unless `INCLUDE` and `LIB` are set,
-and a GUI application started from Explorer does not have them. Launch Build
-Weather from a Developer Command Prompt, or run `vcvars64.bat` first. The app
-checks for this and says so on the Output tab rather than letting the map fill
-with failures.
+and an application started from Explorer does not have them. Build Weather
+handles this itself: when `INCLUDE` is missing and the build directory was
+configured with MSVC, it runs the `vcvarsall.bat` belonging to that build's
+own toolchain and hands the resulting environment to ninja. The Output tab
+says which one it used.
+
+If you still see C1083, the Output tab will say why: either no `vcvarsall.bat`
+was found, or it exported nothing. Starting Build Weather from a Developer
+Command Prompt bypasses the whole mechanism, because `INCLUDE` is then already
+set and the existing environment is used as-is.
 
 **The map shows paths under `CMakeFiles/` instead of my source files.**
 `compile_commands.json` is missing. Reconfigure with
